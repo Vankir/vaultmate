@@ -11,10 +11,7 @@ class FileConflict {
   FileConflict({required this.original, required this.conflict});
 
   factory FileConflict.fromJson(Map<String, dynamic> json) {
-    return FileConflict(
-      original: json['original'],
-      conflict: json['conflict'],
-    );
+    return FileConflict(original: json['original'], conflict: json['conflict']);
   }
 }
 
@@ -26,7 +23,8 @@ class ConflictSearchAgent extends Agent {
 
   @override
   Future<void> run() async {
-    final prompt = '''
+    final prompt =
+        '''
 Identify pairs of conflicting files from the following list. A conflict exists when two files have the same name, but one is prefixed with 'conflict'. Return the result as a JSON array of objects, each containing 'original' and 'conflict' fields.
 
 Files:
@@ -39,8 +37,7 @@ Example format:
 ]
 ''';
 
-    final client = OpenAIClient(
-        apiKey: "sk-None-ewejkhhfaCu2pUPzu9YtT3BlbkFJ45cKAuCYcLp0ioKXVxce");
+    final client = OpenAIClient(apiKey: "zzz");
     final res = await client.createChatCompletion(
       request: CreateChatCompletionRequest(
         model: const ChatCompletionModel.modelId('gpt-4'),
@@ -51,15 +48,18 @@ Example format:
                 'You are a helpful assistant that finds conflicts in group of files based on their names. Response should not include anything except requested json',
           ),
           ChatCompletionMessage.user(
-              content: ChatCompletionUserMessageContent.string(prompt)),
+            content: ChatCompletionUserMessageContent.string(prompt),
+          ),
         ],
       ),
     );
 
-    final List<dynamic> jsonList =
-        json.decode(res.choices.first.message.content!);
-    _conflictingFiles =
-        jsonList.map((json) => FileConflict.fromJson(json)).toList();
+    final List<dynamic> jsonList = json.decode(
+      res.choices.first.message.content!,
+    );
+    _conflictingFiles = jsonList
+        .map((json) => FileConflict.fromJson(json))
+        .toList();
   }
 
   List<FileConflict> get result {

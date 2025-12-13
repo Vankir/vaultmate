@@ -9,8 +9,7 @@ class MergeContentAgent implements Agent {
 
   @override
   Future<String> run() async {
-    final client = OpenAIClient(
-        apiKey: "sk-None-ewejkhhfaCu2pUPzu9YtT3BlbkFJ45cKAuCYcLp0ioKXVxce");
+    final client = OpenAIClient(apiKey: "zzz");
     final res = await client.createChatCompletion(
       request: CreateChatCompletionRequest(
         model: const ChatCompletionModel.modelId('gpt-4'),
@@ -21,8 +20,10 @@ class MergeContentAgent implements Agent {
                 'You are a helpful assistant that merges the content of two files. Returned result should not contain any information except the merged content.',
           ),
           ChatCompletionMessage.user(
-              content: ChatCompletionUserMessageContent.string(
-                  'Merge the following files avoiding conent duplication:\n\nFile 1 content:\n$content1\n\nFile 2 content:\n$content2')),
+            content: ChatCompletionUserMessageContent.string(
+              'Merge the following files avoiding conent duplication:\n\nFile 1 content:\n$content1\n\nFile 2 content:\n$content2',
+            ),
+          ),
         ],
       ),
     );
