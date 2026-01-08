@@ -43,7 +43,6 @@ this is content of the task
         'test that not every file with YAML front matter is considered as TaskNote',
         () async {
       final fileContent = '''---
-status: open
 priority: normal
 scheduled: 2025-08-16
 dateCreated: 2025-08-16T22:33:28.696+02:00

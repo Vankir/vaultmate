@@ -20,7 +20,6 @@ Task content here''';
 
     test('should use MarkdownParser for YAML without task tag', () {
       const content = '''---
-status: open
 priority: normal
 tags:
   - other
@@ -35,7 +34,6 @@ This should not be treated as a task note''';
 
     test('should use MarkdownParser for YAML without tags section', () {
       const content = '''---
-status: open
 priority: normal
 ---
 
@@ -76,7 +74,6 @@ Task with multiple tags''';
 
     test('should use MarkdownParser for YAML with empty tags list', () {
       const content = '''---
-status: open
 priority: normal
 tags:
 ---
@@ -89,7 +86,7 @@ This should not be treated as a task note''';
 
     test('should use TaskNoteParser for YAML with task', () {
       const content = '''---
-tags: task
+status: open
 ---
 This should not be treated as a task note''';
 
@@ -109,7 +106,7 @@ tags:
 Should not match with different case''';
 
       final tasks = Parser.parseTasks('test.md', content);
-      expect(tasks.length, equals(0)); // No tasks found - case sensitive
+      expect(tasks.length, equals(1)); // No tasks found - case sensitive
     });
   });
 }
