@@ -18,7 +18,7 @@ class TaskNoteParser extends Parser {
   }
 
   /// Parses status from YAML content
-  TaskStatus _parseStatus(String yamlContent) {
+  static TaskStatus parseStatus(String yamlContent) {
     final statusMatch =
         RegExp(r'^status:\s+(\S+)', multiLine: true).firstMatch(yamlContent);
     if (statusMatch != null) {
@@ -33,7 +33,8 @@ class TaskNoteParser extends Parser {
           return TaskStatus.todo;
       }
     }
-    return TaskStatus.todo;
+
+    throw Exception("No status found in YAML content");
   }
 
   /// Parses priority from YAML content
@@ -181,7 +182,7 @@ class TaskNoteParser extends Parser {
     final yamlContent = result.yamlContent;
 
     // Parse metadata from YAML
-    final status = _parseStatus(yamlContent);
+    final status = parseStatus(yamlContent);
     final priority = _parsePriority(yamlContent);
     final scheduledResult = _parseScheduledDate(yamlContent);
     final scheduled = scheduledResult['dateTime'] as DateTime?;

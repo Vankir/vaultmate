@@ -1,3 +1,4 @@
+import 'package:logger/logger.dart';
 import 'package:obsi/src/core/storage/storage_interfaces.dart';
 import 'package:obsi/src/core/tasks/parsers/markdown_parser.dart';
 import 'package:obsi/src/core/tasks/parsers/task_note_parser.dart';
@@ -25,9 +26,11 @@ abstract class Parser {
       return MarkdownParser();
     }
 
-    final tags = TaskNoteParser.parseTags(yamlResult.item2);
-    if (tags.contains('task')) {
+    try {
+      TaskNoteParser.parseStatus(yamlResult.item2);
       return TaskNoteParser();
+    } catch (e) {
+      Logger().e("Error parsing task note: $e");
     }
 
     return MarkdownParser();
