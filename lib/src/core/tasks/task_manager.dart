@@ -342,16 +342,18 @@ class TaskManager with ChangeNotifier {
     }
   }
 
-  Future saveTask(Task task, {String? filePath}) async {
-    return await saveTasks([task], filePath: filePath);
+  Future saveTask(Task task, {String? filePath, String? saveMarker}) async {
+    return await saveTasks([task], filePath: filePath, saveMarker: saveMarker);
   }
 
-  Future saveTasks(List<Task> tasks, {String? filePath}) async {
+  Future saveTasks(List<Task> tasks,
+      {String? filePath, String? saveMarker}) async {
     var fileIndex = filePath == null ? tasks[0].taskSource!.fileNumber : 0;
     var content = await TaskSaver(storage).saveTasks(tasks,
         filePath: filePath,
         dateTemplate: dateTemplate,
-        taskFilter: _taskFilter);
+        taskFilter: _taskFilter,
+        saveMarker: saveMarker);
 
     if (content != null) {
       var fileName = filePath ?? tasks[0].taskSource!.fileName;
