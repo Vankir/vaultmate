@@ -75,11 +75,91 @@ class SettingsController with ChangeNotifier {
     return status;
   }
 
+  static Future<String?> selectFile(BuildContext context,
+      {String? startDirectory}) async {
+    // Capture messenger before any async gaps to avoid using context later
+    final messenger = ScaffoldMessenger.maybeOf(context);
+    PermissionStatus status;
+    var shortcuts = <FilesystemPickerShortcut>[];
+
+    // Use vault directory as default start directory if not specified
+    final defaultStartDir = startDirectory ?? getInstance().vaultDirectory;
+
+    if (Platform.isAndroid) {
+      Logger().i("requesting Android permission");
+      status = await requestAndroidPermission(context);
+      if (status != PermissionStatus.granted) {
+        Logger().i("Storage permission denied");
+        return null;
+      }
+
+      // Fetch external directories and proceed with file selection
+      var externalDirectories =
+          await ExternalPath.getExternalStorageDirectories();
+      if (externalDirectories == null || externalDirectories.isEmpty) {
+        messenger?.showSnackBar(
+          const SnackBar(
+              content: Text('No external storage directories found.')),
+        );
+        return null;
+      }
+
+      shortcuts = externalDirectories
+          .map((dir) =>
+              FilesystemPickerShortcut(name: dir, path: Directory(dir)))
+          .toList();
+
+      // Guard against using context after async gaps
+      if (!context.mounted) return null;
+
+      // Use a SafeArea-wrapped FilesystemPicker to select a file
+      return await Navigator.of(context).push<String>(
+        MaterialPageRoute(
+          builder: (ctx) => SafeArea(
+            bottom: true,
+            child: FilesystemPicker(
+              title: 'Select markdown file',
+              shortcuts: shortcuts,
+              fsType: FilesystemType.file,
+              pickText: 'Choose file',
+              fileTileSelectMode: FileTileSelectMode.wholeTile,
+              allowedExtensions: ['.md'],
+              // rootDirectory:
+              //     defaultStartDir != null ? Directory(defaultStartDir) : null,
+              directory:
+                  defaultStartDir != null ? Directory(defaultStartDir) : null,
+              onSelect: (path) => Navigator.of(ctx).pop(path),
+            ),
+          ),
+        ),
+      );
+    } else {
+      // For iOS, use the native file picker
+      var status = await Permission.storage.request();
+
+      if (!status.isGranted) {
+        messenger?.showSnackBar(
+          const SnackBar(
+              content:
+                  Text('Storage permission is required to select a file.')),
+        );
+      } else {
+        // iOS uses its own file picker which starts from the vault directory
+        return await IosTasksFileStorage.selectFolder();
+      }
+    }
+    return null;
+  }
+
   static Future<String?> selectVaultDirectory(BuildContext context) async {
     // Capture messenger before any async gaps to avoid using context later
     final messenger = ScaffoldMessenger.maybeOf(context);
     PermissionStatus status;
     var shortcuts = <FilesystemPickerShortcut>[];
+
+    // Get vault directory from settings to use as initial directory
+    final vaultDir = getInstance().vaultDirectory;
+
     if (Platform.isAndroid) {
       Logger().i("requesting Android permission");
       status = await requestAndroidPermission(context);
@@ -115,6 +195,8 @@ class SettingsController with ChangeNotifier {
               shortcuts: shortcuts,
               fsType: FilesystemType.folder,
               pickText: 'Choose vault folder',
+              fileTileSelectMode: FileTileSelectMode.wholeTile,
+              directory: vaultDir != null ? Directory(vaultDir) : null,
               onSelect: (path) => Navigator.of(ctx).pop(path),
             ),
           ),
@@ -165,6 +247,10 @@ class SettingsController with ChangeNotifier {
   String? _globalTaskFilter;
   int _rateDialogCounter = 0;
   String? _chatGptKey;
+  String? _saveMarker;
+  bool _chooseFileEnabled = false;
+  String? _lastSelectedFile;
+  String? _filePathPattern;
 
   bool _showOverdueOnly = false;
   bool _includeDueTasksInToday = true;
@@ -193,6 +279,10 @@ class SettingsController with ChangeNotifier {
   DateTime? get zeroDate => _zeroDate;
   int get rateDialogCounter => _rateDialogCounter;
   String? get chatGptKey => _chatGptKey;
+  String? get saveMarker => _saveMarker;
+  bool get chooseFileEnabled => _chooseFileEnabled;
+  String? get lastSelectedFile => _lastSelectedFile;
+  String? get filePathPattern => _filePathPattern;
   bool get showOverdueOnly => _showOverdueOnly;
   bool get includeDueTasksInToday => _includeDueTasksInToday;
   bool get onboardingComplete => _onboardingComplete;
@@ -220,6 +310,10 @@ class SettingsController with ChangeNotifier {
     _reviewTasksReminderTime = await _settingsService.reviewTasksReminderTime();
     _reviewCompletedReminderTime =
         await _settingsService.reviewCompletedReminderTime();
+    _saveMarker = await _settingsService.saveMarker();
+    _chooseFileEnabled = await _settingsService.chooseFileEnabled();
+    _lastSelectedFile = await _settingsService.lastSelectedFile();
+    _filePathPattern = await _settingsService.filePathPattern();
 
     // Future<void> updateNotificationTime(DateTime? newNotifTime) async {
     //   if (newNotifTime == notificationTime) return;
@@ -253,6 +347,34 @@ class SettingsController with ChangeNotifier {
 
     _chatGptKey = newChatGptKey;
     await _settingsService.updateChatGptKey(newChatGptKey);
+  }
+
+  Future<void> updateSaveMarker(String? newSaveMarker) async {
+    if (newSaveMarker == saveMarker) return;
+
+    _saveMarker = newSaveMarker;
+    await _settingsService.updateSaveMarker(newSaveMarker);
+  }
+
+  Future<void> updateChooseFileEnabled(bool value) async {
+    if (value == _chooseFileEnabled) return;
+
+    _chooseFileEnabled = value;
+    await _settingsService.updateChooseFileEnabled(value);
+  }
+
+  Future<void> updateLastSelectedFile(String? filePath) async {
+    if (filePath == _lastSelectedFile) return;
+
+    _lastSelectedFile = filePath;
+    await _settingsService.updateLastSelectedFile(filePath);
+  }
+
+  Future<void> updateFilePathPattern(String? pattern) async {
+    if (pattern == _filePathPattern) return;
+
+    _filePathPattern = pattern;
+    await _settingsService.updateFilePathPattern(pattern);
   }
 
   Future<void> updateViewMode(ViewMode newViewMode) async {

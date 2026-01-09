@@ -36,6 +36,10 @@ class SettingsService {
       "review_tasks_reminder_time";
   static const String _reviewCompletedReminderTimeKey =
       "review_completed_reminder_time";
+  static const String _saveMarkerKey = "save_marker";
+  static const String _chooseFileEnabledKey = "choose_file_enabled";
+  static const String _lastSelectedFileKey = "last_selected_file";
+  static const String _filePathPatternKey = "file_path_pattern";
 
   Future<ThemeMode> themeMode() async => ThemeMode.system;
 
@@ -306,6 +310,58 @@ class SettingsService {
       sharedPreferences.remove(_chatGptKeyKey);
     } else {
       sharedPreferences.setString(_chatGptKeyKey, chatGptKey);
+    }
+  }
+
+  Future<String?> saveMarker() async {
+    var sharedPreferences = await SharedPreferences.getInstance();
+    return sharedPreferences.getString(_saveMarkerKey);
+  }
+
+  Future<void> updateSaveMarker(String? saveMarker) async {
+    var sharedPreferences = await SharedPreferences.getInstance();
+    if (saveMarker == null) {
+      sharedPreferences.remove(_saveMarkerKey);
+    } else {
+      sharedPreferences.setString(_saveMarkerKey, saveMarker);
+    }
+  }
+
+  Future<bool> chooseFileEnabled() async {
+    var sharedPreferences = await SharedPreferences.getInstance();
+    return sharedPreferences.getBool(_chooseFileEnabledKey) ?? false;
+  }
+
+  Future<void> updateChooseFileEnabled(bool value) async {
+    var sharedPreferences = await SharedPreferences.getInstance();
+    sharedPreferences.setBool(_chooseFileEnabledKey, value);
+  }
+
+  Future<String?> lastSelectedFile() async {
+    var sharedPreferences = await SharedPreferences.getInstance();
+    return sharedPreferences.getString(_lastSelectedFileKey);
+  }
+
+  Future<void> updateLastSelectedFile(String? filePath) async {
+    var sharedPreferences = await SharedPreferences.getInstance();
+    if (filePath == null) {
+      sharedPreferences.remove(_lastSelectedFileKey);
+    } else {
+      sharedPreferences.setString(_lastSelectedFileKey, filePath);
+    }
+  }
+
+  Future<String?> filePathPattern() async {
+    var sharedPreferences = await SharedPreferences.getInstance();
+    return sharedPreferences.getString(_filePathPatternKey);
+  }
+
+  Future<void> updateFilePathPattern(String? pattern) async {
+    var sharedPreferences = await SharedPreferences.getInstance();
+    if (pattern == null) {
+      sharedPreferences.remove(_filePathPatternKey);
+    } else {
+      sharedPreferences.setString(_filePathPatternKey, pattern);
     }
   }
 }

@@ -19,7 +19,8 @@ class TaskSaver {
   Future<String?> saveTasks(List<Task> tasks,
       {String? filePath,
       String dateTemplate = "yyyy-MM-dd",
-      String taskFilter = ""}) async {
+      String taskFilter = "",
+      String? saveMarker}) async {
     if (tasks[0].taskSource == null && filePath == null) {
       return null;
     }
@@ -37,13 +38,46 @@ class TaskSaver {
       savedContent = await saveTaskNote(tasks[0]);
     } else {
       var content = await file.readAsString();
-      content =
+
+      // If a marker is specified, find its position and use it as the offset
+      if (saveMarker != null && saveMarker.isNotEmpty && filePath != null) {
+        final insertPosition = _findMarkerInsertPosition(content, saveMarker);
+
+        if (insertPosition != null) {
+          tasks[0].taskSource = TaskSource(
+            0,
+            fileName,
+            insertPosition,
+            0,
+            type: TaskType.markdown,
+          );
+        }
+      }
+
+      savedContent =
           _createNewContent(tasks, content, filePath, dateTemplate, taskFilter);
-      savedContent = content;
     }
     Logger().i("Content saved: $savedContent");
     await file.writeAsString(savedContent);
     return savedContent;
+  }
+
+  int? _findMarkerInsertPosition(String content, String marker) {
+    final markerIndex = content.indexOf(marker);
+
+    if (markerIndex == -1) {
+      return null;
+    }
+
+    final markerEndIndex = markerIndex + marker.length;
+    int insertPosition = markerEndIndex;
+
+    // Skip newline after marker if present
+    if (markerEndIndex < content.length && content[markerEndIndex] == '\n') {
+      insertPosition = markerEndIndex + 1;
+    }
+
+    return insertPosition;
   }
 
   String _createNewContent(List<Task> tasks, String content, String? filePath,

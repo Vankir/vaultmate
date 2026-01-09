@@ -72,7 +72,22 @@ class _TaskEditorState extends State<TaskEditor> {
                                   .setDescription(value);
                             },
                           ),
-                          const SizedBox(height: 12),
+                          if (context.read<TaskEditorCubit>().isNewTask)
+                            CheckboxListTile(
+                              title: const Text('TaskNote format'),
+                              value: context
+                                  .read<TaskEditorCubit>()
+                                  .taskNoteFormat,
+                              onChanged: (value) {
+                                if (value != null) {
+                                  context
+                                      .read<TaskEditorCubit>()
+                                      .toggleTaskNoteFormat(value);
+                                }
+                              },
+                              controlAffinity: ListTileControlAffinity.leading,
+                              contentPadding: EdgeInsets.zero,
+                            ),
                           Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
@@ -331,19 +346,49 @@ class _TaskEditorState extends State<TaskEditor> {
                     ],
                   ),
                 ),
-                // Bottom save button
+                // Bottom save button with optional file chooser checkbox
                 SafeArea(
                   child: Padding(
                     padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
-                    child: SizedBox(
-                      width: double.infinity,
-                      child: ElevatedButton.icon(
-                        icon: const Icon(Icons.save_outlined),
-                        label: const Text('Save'),
-                        onPressed: () {
-                          context.read<TaskEditorCubit>().saveTask(context);
-                        },
-                      ),
+                    child: Row(
+                      children: [
+                        if (context.read<TaskEditorCubit>().isNewTask &&
+                            !context.read<TaskEditorCubit>().taskNoteFormat)
+                          Expanded(
+                            flex: 1,
+                            child: CheckboxListTile(
+                              title: const Text('Choose file'),
+                              value: context
+                                  .read<TaskEditorCubit>()
+                                  .chooseFileEnabled,
+                              onChanged: (value) {
+                                if (value != null) {
+                                  context
+                                      .read<TaskEditorCubit>()
+                                      .toggleChooseFile(value);
+                                }
+                              },
+                              controlAffinity: ListTileControlAffinity.leading,
+                              contentPadding: EdgeInsets.zero,
+                            ),
+                          ),
+                        Expanded(
+                          flex: 1,
+                          child: SizedBox(
+                            height: 40,
+                            child: ElevatedButton.icon(
+                              icon: const Icon(Icons.save_outlined, size: 18),
+                              label: const Text('Save',
+                                  style: TextStyle(fontSize: 14)),
+                              onPressed: () {
+                                context
+                                    .read<TaskEditorCubit>()
+                                    .saveTask(context);
+                              },
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 )

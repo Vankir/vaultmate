@@ -31,12 +31,16 @@ class _SettingsViewState extends State<SettingsView> {
   final _dateTemplateController = TextEditingController();
   final _tasksFileNameController = TextEditingController();
   final _globalTaskFilterController = TextEditingController();
+  final _saveMarkerController = TextEditingController();
+  final _filePathPatternController = TextEditingController();
 
   @override
   void initState() {
     _dateTemplateController.text = widget.controller.dateTemplate;
     _tasksFileNameController.text = widget.controller.tasksFile;
     _globalTaskFilterController.text = widget.controller.globalTaskFilter;
+    _saveMarkerController.text = widget.controller.saveMarker ?? '';
+    _filePathPatternController.text = widget.controller.filePathPattern ?? '';
 
     _dateTemplateController.addListener(() {
       widget.controller.updateDateTemplate(_dateTemplateController.text);
@@ -59,6 +63,8 @@ class _SettingsViewState extends State<SettingsView> {
     _tasksFileNameController.dispose();
     _dateTemplateController.dispose();
     _globalTaskFilterController.dispose();
+    _saveMarkerController.dispose();
+    _filePathPatternController.dispose();
     widget.controller.removeListener(_onControllerChanged);
     super.dispose();
   }
@@ -139,6 +145,57 @@ class _SettingsViewState extends State<SettingsView> {
                     widget.controller.updateGlobalTaskFilter(value);
                   },
                 )
+              ])),
+          Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(children: [
+                const Align(
+                    alignment: Alignment.centerLeft,
+                    child: Text("Save Marker (for file selection): ")),
+                TextField(
+                  controller: _saveMarkerController,
+                  decoration: const InputDecoration(
+                    hintText: "Enter a marker, e.g. <!-- tasks -->",
+                  ),
+                  onSubmitted: (value) {
+                    widget.controller
+                        .updateSaveMarker(value.isEmpty ? null : value);
+                  },
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  "When 'Choose file' is enabled, new tasks will be inserted after this marker in the selected file.",
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Colors.grey[600],
+                  ),
+                ),
+              ])),
+          Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(children: [
+                const Align(
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                        "File Path Pattern (for automatic file selection): ")),
+                TextField(
+                  controller: _filePathPatternController,
+                  decoration: const InputDecoration(
+                    hintText: "e.g. {vault}/Daily notes/{yyyy-MM-dd}.md",
+                  ),
+                  onSubmitted: (value) {
+                    widget.controller
+                        .updateFilePathPattern(value.isEmpty ? null : value);
+                  },
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  "If specified, tasks will be saved to this file path instead of showing file picker. Use {vault} for vault root. Date patterns must be in brackets: {yyyy-MM-dd}, {yyyy}/{MM}/{dd}, etc.",
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Colors.grey[600],
+                  ),
+                ),
               ])),
           Padding(
               padding: const EdgeInsets.all(16),
