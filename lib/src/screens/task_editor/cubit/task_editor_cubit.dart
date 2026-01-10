@@ -238,7 +238,7 @@ class TaskEditorCubit extends Cubit<TaskEditorState> {
     // Remove invalid filename characters
     filename = filename.replaceAll(RegExp(r'[/\\:*?"<>|]'), '_');
 
-    final filePath = p.join(selectedFolder, '\$filename.md');
+    final filePath = p.join(selectedFolder, '${filename}.md');
 
     // Set task source type to TaskNote
     _currentTask.taskSource = TaskSource(
