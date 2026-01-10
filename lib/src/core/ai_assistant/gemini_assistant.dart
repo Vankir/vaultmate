@@ -41,7 +41,7 @@ class GeminiAssistant extends AIAssistant {
     var prompt = _buildPrompt(
         userPrompt,
         AIAssistantPrompts.assistantMainPrompt,
-        "Today is $currentDateTime Vault path (root folder for Obsi): $vault",
+        "Today is $currentDateTime Vault path (root folder for VaultMate): $vault",
         "");
 
     var response = await _callChat(chat, prompt);
