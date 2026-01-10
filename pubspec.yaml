@@ -27,7 +27,7 @@ dependencies:
   timezone: ^0.10.0
   url_launcher: ^6.3.1
   #experiments with gpt
-  openai_dart: ^0.4.0
+  dart_openai: ^6.1.1
   flutter_gemini: ^3.0.0
   google_generative_ai: ^0.4.6
   flutter_chat_ui: ^1.6.15

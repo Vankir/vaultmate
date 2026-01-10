@@ -12,7 +12,7 @@ import 'package:obsi/src/core/ai_assistant/tools_registry.dart';
 import 'package:obsi/src/core/tasks/task_manager.dart';
 import 'package:flutter_chat_types/flutter_chat_types.dart' as msg_types;
 import 'package:obsi/src/screens/settings/settings_controller.dart';
-import 'package:openai_dart/openai_dart.dart';
+import 'package:obsi/src/core/ai_assistant/chat_completion_message.dart';
 import 'ai_assistant_state.dart';
 
 class AIAssistantCubit extends Cubit<AIAssistantState> {

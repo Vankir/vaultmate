@@ -3,11 +3,10 @@ import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 import 'package:logger/logger.dart';
-import 'package:obsi/src/core/ai_assistant/chatgpt_assistant.dart';
 import 'package:obsi/src/core/tasks/task.dart';
 import 'package:obsi/src/core/tasks/task_parser.dart';
 import 'package:obsi/src/core/tasks/task_source.dart';
-import 'package:openai_dart/openai_dart.dart';
+import 'package:obsi/src/core/ai_assistant/chat_completion_message.dart';
 import 'package:obsi/src/core/ai_assistant/tools_registry.dart';
 
 // Message types for different updates
@@ -49,9 +48,9 @@ abstract class AIAssistant with ChangeNotifier {
   final toolsRegistry;
 
   AIAssistant(this.apiKey, this.toolsRegistry);
-  factory AIAssistant.getInstance(String apiKey, ToolsRegistry toolsRegistry) {
-    return ChatGptAssistant(apiKey, toolsRegistry);
-  }
+  // factory AIAssistant.getInstance(String apiKey, ToolsRegistry toolsRegistry) {
+  //   return ChatGptAssistant(apiKey, toolsRegistry);
+  // }
 
   Future<String?> chat(List<ChatCompletionMessage> messages,
       String currentDateTime, String vault);

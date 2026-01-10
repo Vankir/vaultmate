@@ -7,7 +7,7 @@ import 'package:obsi/src/core/ai_assistant/action.dart';
 import 'package:obsi/src/core/ai_assistant/ai_assistant_prompts.dart';
 import 'package:obsi/src/core/ai_assistant/extended_generation_config.dart';
 import 'package:obsi/src/core/ai_assistant/tools_registry.dart';
-import 'package:openai_dart/openai_dart.dart';
+import 'package:obsi/src/core/ai_assistant/chat_completion_message.dart';
 import 'ai_assistant.dart';
 
 class GeminiAssistant extends AIAssistant {
