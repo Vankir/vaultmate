@@ -223,66 +223,6 @@ class GeminiAssistant extends AIAssistant {
     }
   }
 
-  // @override
-  // Future<String?> sendPrompt(String userPrompt) async {
-  //   Gemini.init(apiKey: apiKey!);
-  //   //var models = await Gemini.instance.listModels();
-  //   // print("Models: ${models.map((model) => model.name).toList()}");
-
-  //   var prompt = _buildPrompt(
-  //       userPrompt,
-  //       "You are a helpful assistant. Based on the user_input, you can either respond directly or invoke tools listed in 'tools'. Format your response as JSON according to the 'response_format' schema.\n\n",
-  //       "",
-  //       "");
-
-  //   var output = await _callGemini(prompt);
-
-  //   var response = _parseResponse(output);
-  //   while (response.finalAnswer == null ||
-  //       response.finalAnswer!.isEmpty ||
-  //       (response.actions != null && response.actions!.isNotEmpty)) {
-  //     var toolResult = "";
-  //     if (response.actions != null && response.actions!.isNotEmpty) {
-  //       for (var action in response.actions!) {
-  //         var functionName = action.name;
-  //         var parameters = action.parameters;
-
-  //         if (toolsRegistry.functionExists(functionName)) {
-  //           var res =
-  //               await toolsRegistry.callFunction(functionName, parameters);
-  //           toolResult =
-  //               "$functionName(${parameters.join(", ")}) produced: $res\n";
-  //         }
-
-  //         var continuePrompt = _buildPrompt(
-  //             userPrompt,
-  //             "Now, based on the observation, give the answer.",
-  //             output,
-  //             toolResult);
-  //         output = await _callGemini(continuePrompt);
-  //         response = _parseResponse(output);
-  //       }
-  //     }
-  //   }
-
-  //   return response.finalAnswer;
-  // }
-
-  // Future<String> _callGemini(String prompt) async {
-  //   Logger().i("Prompt: $prompt");
-  //   //print("Prompt: $prompt");
-  //   var candidates = await Gemini.instance.prompt(
-  //     parts: [Part.text(prompt)],
-  //     model: modelName,
-  //     generationConfig: GenerationConfig(
-  //       temperature: 0.3,
-  //       maxOutputTokens: 1024, // Set a higher token limit
-  //     ),
-  //   );
-  //   Logger().i("Output: ${candidates?.output ?? ""}");
-  //   return candidates?.output ?? "";
-  // }
-
   String _buildPrompt(String userInput, String instruction, String inputContext,
       String inputObservation) {
     var infos = toolsRegistry.getFunctionInfos();
