@@ -1,5 +1,5 @@
 import 'dart:async';
-import 'dart:io';
+import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
 import 'package:logger/logger.dart';
@@ -7,7 +7,8 @@ import 'package:obsi/src/core/tasks/task.dart';
 import 'package:obsi/src/core/tasks/task_parser.dart';
 import 'package:obsi/src/core/tasks/task_source.dart';
 import 'package:obsi/src/core/ai_assistant/chat_completion_message.dart';
-import 'package:obsi/src/core/ai_assistant/tools_registry.dart';
+import 'package:obsi/src/core/ai_assistant/action.dart';
+import 'package:obsi/src/core/ai_assistant/ai_assistant_prompts.dart';
 
 // Message types for different updates
 enum AIMessageType {
@@ -45,17 +46,74 @@ abstract class AIAssistant with ChangeNotifier {
   static const String taskBeginMarker = "<!-task->";
   static const String taskEndMarker = "<!-/tasks->";
   static const String sourceInfoMarker = "💡";
-  final toolsRegistry;
+  final dynamic toolsRegistry;
+  final Map<int, Completer<bool>> _pendingConfirmations = {};
 
   AIAssistant(this.apiKey, this.toolsRegistry);
-  // factory AIAssistant.getInstance(String apiKey, ToolsRegistry toolsRegistry) {
-  //   return ChatGptAssistant(apiKey, toolsRegistry);
-  // }
 
   Future<String?> chat(List<ChatCompletionMessage> messages,
-      String currentDateTime, String vault);
+      String currentDateTime, String vault) async {
+    List<ChatCompletionMessage> promptWithHistory =
+        addSystemPrompt(messages, currentDateTime);
 
-  Future<void> confirmToolAction(int actionId, bool allowed);
+    var userPrompt = _extractUserPrompt(promptWithHistory);
+    var prompt = buildPrompt(
+        userPrompt,
+        AIAssistantPrompts.assistantMainPrompt,
+        "Today is $currentDateTime Vault path (root folder for VaultMate): $vault",
+        "");
+
+    var response = await callAIModel(promptWithHistory, prompt);
+    emitMessage(AIMessage.reasoning(response.thought));
+
+    int maxAttempts = 4;
+    while (--maxAttempts == 0 ||
+        response.finalAnswer == null ||
+        response.finalAnswer!.isEmpty ||
+        (response.actions != null && response.actions!.isNotEmpty)) {
+      if (response.actions != null && response.actions!.isNotEmpty) {
+        var toolResult = "";
+        for (var action in response.actions!) {
+          toolResult += await executeAction(action);
+          toolResult += "\n";
+        }
+
+        var continuePrompt = buildPrompt(
+            userPrompt,
+            "Now, based on the observation, give the answer.",
+            response.thought,
+            toolResult);
+        response = await callAIModel(promptWithHistory, continuePrompt);
+
+        emitMessage(AIMessage.reasoning(response.thought));
+      }
+    }
+
+    emitMessage(AIMessage.text(response.finalAnswer!));
+    return response.finalAnswer;
+  }
+
+  String _extractUserPrompt(List<ChatCompletionMessage> messages) {
+    for (var i = messages.length - 1; i >= 0; i--) {
+      if (messages[i] is ChatCompletionUserMessage) {
+        var msg = messages[i] as ChatCompletionUserMessage;
+        return msg.content.value.toString();
+      }
+    }
+    return "";
+  }
+
+  Future<ResponseWithAction> callAIModel(
+      List<ChatCompletionMessage> messages, String prompt);
+
+  Future<void> confirmToolAction(int actionId, bool allowed) async {
+    var completer = _pendingConfirmations[actionId];
+    if (completer != null && !completer.isCompleted) {
+      completer.complete(allowed);
+    } else {
+      Logger().w('No pending confirmation for actionId $actionId');
+    }
+  }
 
   void reInitialize(String apiKey);
 
@@ -179,9 +237,114 @@ $tasks
     _messageController.add(message);
   }
 
+  Future<String> executeAction(Action action) async {
+    var functionName = action.name;
+    var parameters = action.parameters;
+    var toolResult = "";
+    if (toolsRegistry.functionExists(functionName)) {
+      var res = "";
+      try {
+        if (toolsRegistry.requiresConfirmation(functionName)) {
+          var completer = Completer<bool>();
+          _pendingConfirmations[action.id] = completer;
+
+          emitMessage(AIMessage.toolConfirmation({
+            'actionId': action.id,
+            'name': functionName,
+            'parameters': parameters,
+            'description': toolsRegistry.getDescription(functionName),
+          }));
+
+          var allowed = await completer.future;
+          _pendingConfirmations.remove(action.id);
+
+          if (!allowed) {
+            return "$functionName(${parameters.join(", ")}) was declined by user.\n";
+          }
+        }
+
+        Logger()
+            .i("Calling function $functionName with parameters $parameters");
+        res = await toolsRegistry.callFunction(functionName, parameters);
+      } catch (e) {
+        Logger().e(
+            "Error calling function $functionName with parameters $parameters: $e");
+        res = "Error: $e";
+      }
+
+      toolResult = "$functionName(${parameters.join(", ")}) produced: $res\n";
+    } else {
+      toolResult =
+          "$functionName(${parameters.join(", ")}) is not registered\n";
+    }
+    return toolResult;
+  }
+
+  String buildPrompt(String userInput, String instruction, String inputContext,
+      String inputObservation) {
+    var infos = toolsRegistry.getFunctionInfos();
+    var tools = infos.map((info) => info).toList();
+    var context = inputContext.isEmpty ? null : inputContext;
+    var observation = inputObservation.isEmpty ? null : inputObservation;
+
+    final promptMap = {
+      "context": context,
+      "observation": observation,
+      "instructions": instruction,
+      "tools": tools,
+      "user_input": userInput
+    };
+
+    return jsonEncode(promptMap);
+  }
+
+  ResponseWithAction parseResponse(String response) {
+    try {
+      final json = jsonDecode(response) as Map<String, dynamic>;
+      return ResponseWithAction.fromJson(json);
+    } catch (e) {
+      Logger().e("Failed to parse response: $e\nResponse: $response");
+
+      if (e is FormatException && e.message.contains("Unterminated")) {
+        throw Exception("Response was truncated (likely exceeded token limit). "
+            "Try asking for a shorter response or increase maxOutputTokens.");
+      }
+
+      throw Exception("Failed to parse response: $e");
+    }
+  }
+
   @override
   void dispose() {
     _messageController.close();
     super.dispose();
+  }
+}
+
+class ResponseWithAction {
+  final String thought;
+  final List<Action>? actions;
+  final String? finalAnswer;
+
+  ResponseWithAction({
+    required this.thought,
+    this.actions,
+    this.finalAnswer,
+  });
+
+  factory ResponseWithAction.fromJson(Map<String, dynamic> json) {
+    if (!json.containsKey('thought')) {
+      throw Exception("Response missing required 'thought' field.");
+    }
+
+    final actions = (json['actions'] as List<dynamic>?)
+        ?.map((action) => Action.fromJson(action as Map<String, dynamic>))
+        .toList();
+
+    return ResponseWithAction(
+      thought: json['thought'] as String,
+      actions: actions,
+      finalAnswer: json['final_answer'] as String?,
+    );
   }
 }

@@ -1,5 +1,3 @@
-import 'package:obsi/src/core/ai_assistant/ai_assistant.dart';
-
 class AIAssistantPrompts {
   static const String assistantMainPrompt =
       """You are a helpful assistant integrated into the VaultMate app. Your job is to help the user manage files and tasks. You may respond directly or invoke one or more tools **only from the 'tools' list** below.
