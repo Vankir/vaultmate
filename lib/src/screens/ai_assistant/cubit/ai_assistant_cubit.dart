@@ -6,6 +6,7 @@ import 'package:intl/intl.dart';
 import 'package:logger/logger.dart';
 import 'package:obsi/src/core/ai_assistant/ai_assistant.dart';
 import 'package:obsi/src/core/ai_assistant/gemini_assistant.dart';
+import 'package:obsi/src/core/ai_assistant/openai_assistant.dart';
 import 'package:obsi/src/core/ai_assistant/history_storage.dart';
 import 'package:obsi/src/core/ai_assistant/tools/tools.dart';
 import 'package:obsi/src/core/ai_assistant/tools_registry.dart';
@@ -20,16 +21,26 @@ class AIAssistantCubit extends Cubit<AIAssistantState> {
   final TaskManager _taskManager;
   HistoryStorage? _historyStorage;
   Tools tools;
-  final _welcomeMessage = [
-    "👋 Welcome to AI Assistant!",
-    "",
-    "To get started, please send your Gemini API key.",
-    "",
-    "🔑 Get your free API key at:",
-    "https://aistudio.google.com/app/apikey",
-    "",
-    "Your API key will be saved locally and securely on your device."
-  ];
+  List<String> get _welcomeMessage {
+    final settings = SettingsController.getInstance();
+    final useOpenAI =
+        settings.openaiEndpoint != null && settings.openaiEndpoint!.isNotEmpty;
+
+    return [
+      "👋 Welcome to AI Assistant!",
+      "",
+      useOpenAI
+          ? "To get started, please configure OpenAI settings in Settings."
+          : "To get started, please send your Gemini API key.",
+      "",
+      "🔑 Get your API key at:",
+      useOpenAI
+          ? "https://platform.openai.com/api-keys"
+          : "https://aistudio.google.com/app/apikey",
+      "",
+      "Your API key will be saved locally and securely on your device."
+    ];
+  }
 
   AIAssistant? aiAssistant;
   var lastMessages = AIAssistantMessages.init();
@@ -191,11 +202,31 @@ class AIAssistantCubit extends Cubit<AIAssistantState> {
   }
 
   void _initializeAIAssistant() {
-    aiAssistant = GeminiAssistant(
-        SettingsController.getInstance().chatGptKey ?? '',
-        ToolsRegistry.getInstance());
-    aiAssistant
-        ?.reInitialize(SettingsController.getInstance().chatGptKey ?? '');
+    final settings = SettingsController.getInstance();
+    final endpoint = settings.openaiEndpoint;
+    final modelName = settings.openaiModelName;
+    final apiKey = settings.chatGptKey ?? '';
+
+    // Use OpenAI if endpoint is specified, otherwise use Gemini
+    if (endpoint != null && endpoint.isNotEmpty) {
+      // Use OpenAI
+      aiAssistant = OpenAiAPIAssistant(
+        apiKey,
+        ToolsRegistry.getInstance(),
+        modelName: modelName,
+        baseUrl: endpoint,
+      );
+      aiAssistant?.reInitialize(apiKey);
+    } else {
+      // Use Gemini (default)
+      aiAssistant = GeminiAssistant(
+        apiKey,
+        ToolsRegistry.getInstance(),
+        modelName: modelName,
+      );
+      aiAssistant?.reInitialize(apiKey);
+    }
+
     _setupMessageListener();
   }
 

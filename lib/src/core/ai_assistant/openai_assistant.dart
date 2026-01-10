@@ -5,11 +5,16 @@ import 'package:obsi/src/core/ai_assistant/chat_completion_message.dart';
 import 'ai_assistant.dart';
 
 class OpenAiAPIAssistant extends AIAssistant {
-  final String modelName = 'gpt-4o';
+  String modelName;
 
-  OpenAiAPIAssistant(String apiKey, ToolsRegistry registry)
-      : super(apiKey, registry) {
+  OpenAiAPIAssistant(String apiKey, ToolsRegistry registry,
+      {String? modelName, String? baseUrl})
+      : modelName = modelName ?? 'gpt-4o',
+        super(apiKey, registry) {
     OpenAI.apiKey = apiKey;
+    if (baseUrl != null && baseUrl.isNotEmpty) {
+      OpenAI.baseUrl = baseUrl;
+    }
   }
 
   @override
@@ -38,7 +43,6 @@ class OpenAiAPIAssistant extends AIAssistant {
         "type": "json_schema",
         "json_schema": {
           "name": "assistant_response",
-          "strict": true,
           "schema": {
             "type": "object",
             "properties": {

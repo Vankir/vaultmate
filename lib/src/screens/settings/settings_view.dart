@@ -33,6 +33,9 @@ class _SettingsViewState extends State<SettingsView> {
   final _globalTaskFilterController = TextEditingController();
   final _saveMarkerController = TextEditingController();
   final _filePathPatternController = TextEditingController();
+  final _openaiEndpointController = TextEditingController();
+  final _openaiModelNameController = TextEditingController();
+  final _chatGptKeyController = TextEditingController();
 
   @override
   void initState() {
@@ -41,6 +44,9 @@ class _SettingsViewState extends State<SettingsView> {
     _globalTaskFilterController.text = widget.controller.globalTaskFilter;
     _saveMarkerController.text = widget.controller.saveMarker ?? '';
     _filePathPatternController.text = widget.controller.filePathPattern ?? '';
+    _openaiEndpointController.text = widget.controller.openaiEndpoint ?? '';
+    _openaiModelNameController.text = widget.controller.openaiModelName ?? '';
+    _chatGptKeyController.text = widget.controller.chatGptKey ?? '';
 
     _dateTemplateController.addListener(() {
       widget.controller.updateDateTemplate(_dateTemplateController.text);
@@ -65,6 +71,9 @@ class _SettingsViewState extends State<SettingsView> {
     _globalTaskFilterController.dispose();
     _saveMarkerController.dispose();
     _filePathPatternController.dispose();
+    _openaiEndpointController.dispose();
+    _openaiModelNameController.dispose();
+    _chatGptKeyController.dispose();
     widget.controller.removeListener(_onControllerChanged);
     super.dispose();
   }
@@ -357,6 +366,76 @@ class _SettingsViewState extends State<SettingsView> {
                   ],
                 ),
               ])),
+
+          // AI Assistant Settings Section
+          Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    "AI Assistant Settings",
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  const Text("OpenAI Endpoint (optional):"),
+                  const SizedBox(height: 4),
+                  TextField(
+                    controller: _openaiEndpointController,
+                    decoration: const InputDecoration(
+                      hintText: "e.g. https://api.openai.com/v1",
+                      helperText: "Leave empty to use Gemini",
+                    ),
+                    onSubmitted: (value) {
+                      widget.controller
+                          .updateOpenaiEndpoint(value.isEmpty ? null : value);
+                    },
+                  ),
+                  const SizedBox(height: 16),
+                  const Text("Model Name (optional):"),
+                  const SizedBox(height: 4),
+                  TextField(
+                    controller: _openaiModelNameController,
+                    decoration: const InputDecoration(
+                      hintText: "e.g. gpt-4o or gemini-2.0-flash-exp",
+                      helperText: "Leave empty to use default model",
+                    ),
+                    onSubmitted: (value) {
+                      widget.controller
+                          .updateOpenaiModelName(value.isEmpty ? null : value);
+                    },
+                  ),
+                  const SizedBox(height: 16),
+                  const Text("API Key:"),
+                  const SizedBox(height: 4),
+                  TextField(
+                    controller: _chatGptKeyController,
+                    decoration: InputDecoration(
+                      hintText: widget.controller.openaiEndpoint != null &&
+                              widget.controller.openaiEndpoint!.isNotEmpty
+                          ? "Enter OpenAI API key"
+                          : "Enter Gemini API key",
+                    ),
+                    obscureText: true,
+                    onSubmitted: (value) {
+                      widget.controller
+                          .updateChatGptKey(value.isEmpty ? null : value);
+                    },
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    "Get Gemini API key: https://aistudio.google.com/app/apikey\nGet OpenAI API key: https://platform.openai.com/api-keys",
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Colors.grey[600],
+                    ),
+                  ),
+                ],
+              )),
+
           Padding(
               padding: const EdgeInsets.all(16),
               child: Column(children: [

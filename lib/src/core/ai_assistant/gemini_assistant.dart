@@ -6,10 +6,11 @@ import 'package:obsi/src/core/ai_assistant/chat_completion_message.dart';
 import 'ai_assistant.dart';
 
 class GeminiAssistant extends AIAssistant {
-  final String modelName = 'gemini-2.0-flash-exp';
+  String modelName;
 
-  GeminiAssistant(String apiKey, ToolsRegistry registry)
-      : super(apiKey, registry) {
+  GeminiAssistant(String apiKey, ToolsRegistry registry, {String? modelName})
+      : modelName = modelName ?? 'gemini-2.0-flash-exp',
+        super(apiKey, registry) {
     Gemini.init(apiKey: apiKey);
   }
 

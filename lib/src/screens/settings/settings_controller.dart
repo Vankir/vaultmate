@@ -247,6 +247,8 @@ class SettingsController with ChangeNotifier {
   String? _globalTaskFilter;
   int _rateDialogCounter = 0;
   String? _chatGptKey;
+  String? _openaiEndpoint;
+  String? _openaiModelName;
   String? _saveMarker;
   bool _chooseFileEnabled = false;
   String? _lastSelectedFile;
@@ -279,6 +281,8 @@ class SettingsController with ChangeNotifier {
   DateTime? get zeroDate => _zeroDate;
   int get rateDialogCounter => _rateDialogCounter;
   String? get chatGptKey => _chatGptKey;
+  String? get openaiEndpoint => _openaiEndpoint;
+  String? get openaiModelName => _openaiModelName;
   String? get saveMarker => _saveMarker;
   bool get chooseFileEnabled => _chooseFileEnabled;
   String? get lastSelectedFile => _lastSelectedFile;
@@ -302,6 +306,8 @@ class SettingsController with ChangeNotifier {
     _sortMode = await _settingsService.sortMode();
     _globalTaskFilter = await _settingsService.globalTaskFilter();
     _chatGptKey = await _settingsService.chatGptKey();
+    _openaiEndpoint = await _settingsService.openaiEndpoint();
+    _openaiModelName = await _settingsService.openaiModelName();
     _showOverdueOnly = await _settingsService.showOverdueOnly();
     _includeDueTasksInToday = await _settingsService.includeDueTasksInToday();
     _onboardingComplete = await _settingsService.onboardingComplete();
@@ -347,6 +353,22 @@ class SettingsController with ChangeNotifier {
 
     _chatGptKey = newChatGptKey;
     await _settingsService.updateChatGptKey(newChatGptKey);
+  }
+
+  Future<void> updateOpenaiEndpoint(String? endpoint) async {
+    if (endpoint == _openaiEndpoint) return;
+
+    _openaiEndpoint = endpoint;
+    notifyListeners();
+    await _settingsService.updateOpenaiEndpoint(endpoint);
+  }
+
+  Future<void> updateOpenaiModelName(String? modelName) async {
+    if (modelName == _openaiModelName) return;
+
+    _openaiModelName = modelName;
+    notifyListeners();
+    await _settingsService.updateOpenaiModelName(modelName);
   }
 
   Future<void> updateSaveMarker(String? newSaveMarker) async {

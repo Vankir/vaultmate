@@ -27,6 +27,8 @@ class SettingsService {
   static const String _zeroDateKey = "zero_date";
   static const String _rateDialogCounterKey = "rate_dialog_counter";
   static const String _chatGptKeyKey = "chatgptkey";
+  static const String _openaiEndpointKey = "openai_endpoint";
+  static const String _openaiModelNameKey = "openai_model_name";
   static const String _showOverdueOnlyKey = "show_overdue_only";
   static const String _includeDueTasksInTodayKey = "include_due_tasks_in_today";
   static const String _onboardingCompleteKey = "onboarding_complete";
@@ -310,6 +312,34 @@ class SettingsService {
       sharedPreferences.remove(_chatGptKeyKey);
     } else {
       sharedPreferences.setString(_chatGptKeyKey, chatGptKey);
+    }
+  }
+
+  Future<String?> openaiEndpoint() async {
+    var sharedPreferences = await SharedPreferences.getInstance();
+    return sharedPreferences.getString(_openaiEndpointKey);
+  }
+
+  Future<void> updateOpenaiEndpoint(String? endpoint) async {
+    var sharedPreferences = await SharedPreferences.getInstance();
+    if (endpoint == null || endpoint.isEmpty) {
+      sharedPreferences.remove(_openaiEndpointKey);
+    } else {
+      sharedPreferences.setString(_openaiEndpointKey, endpoint);
+    }
+  }
+
+  Future<String?> openaiModelName() async {
+    var sharedPreferences = await SharedPreferences.getInstance();
+    return sharedPreferences.getString(_openaiModelNameKey);
+  }
+
+  Future<void> updateOpenaiModelName(String? modelName) async {
+    var sharedPreferences = await SharedPreferences.getInstance();
+    if (modelName == null || modelName.isEmpty) {
+      sharedPreferences.remove(_openaiModelNameKey);
+    } else {
+      sharedPreferences.setString(_openaiModelNameKey, modelName);
     }
   }
 
