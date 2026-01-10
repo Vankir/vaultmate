@@ -582,7 +582,7 @@ class InboxTasks extends StatelessWidget with WidgetsBindingObserver {
                   task,
                 ),
         rightButtonIcon: _inboxTaskCubit.today ? Icons.remove : Icons.add,
-        startWorkflowPressed: task.tags.contains("obsi_ai")
+        startWorkflowPressed: task.tags.contains("vaultmate_ai")
             ? () => _startWorkflowPressed(context, task)
             : null);
   }
