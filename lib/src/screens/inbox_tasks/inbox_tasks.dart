@@ -54,16 +54,29 @@ class InboxTasks extends StatelessWidget with WidgetsBindingObserver {
               }
 
               if (state is InboxTasksLoading) {
-                return Center(
-                    child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  children: <Widget>[
-                    const CircularProgressIndicator(),
-                    const SizedBox(height: 20),
-                    Text('Loading tasks from \n${state.vault}'),
-                  ],
-                ));
+                return RefreshIndicator(
+                  onRefresh: () async {
+                    _inboxTaskCubit.refreshTasks();
+                    await Future.delayed(const Duration(milliseconds: 300));
+                  },
+                  child: SingleChildScrollView(
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    child: SizedBox(
+                      height: MediaQuery.of(context).size.height - 100,
+                      child: Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          crossAxisAlignment: CrossAxisAlignment.center,
+                          children: <Widget>[
+                            const CircularProgressIndicator(),
+                            const SizedBox(height: 20),
+                            Text('Loading tasks from \n${state.vault}'),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                );
               }
 
               if (state is InboxTasksMessage) {
@@ -85,17 +98,25 @@ class InboxTasks extends StatelessWidget with WidgetsBindingObserver {
             }));
   }
 
-  ListView _showListView(
+  Widget _showListView(
       BuildContext context, List<Task> tasks, String highlightedText) {
     final items = _createViewItems(context, tasks, highlightedText);
     // Add extra space after the last card to avoid FAB overlap
-    return ListView(
-      controller: _scrollController,
-      children: [
-        _buildTagFilterLine(context),
-        ...items,
-        const SizedBox(height: 80), // Adjust height as needed for FAB
-      ],
+    return RefreshIndicator(
+      onRefresh: () async {
+        _inboxTaskCubit.refreshTasks();
+        // Wait a brief moment for the refresh to start
+        await Future.delayed(const Duration(milliseconds: 300));
+      },
+      child: ListView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        controller: _scrollController,
+        children: [
+          _buildTagFilterLine(context),
+          ...items,
+          const SizedBox(height: 80), // Adjust height as needed for FAB
+        ],
+      ),
     );
   }
 
