@@ -146,6 +146,23 @@ class TaskParser extends MarkdownTaskMarkers {
     return Tuple2(date, res);
   }
 
+  /// Extracts time in HH:MM format from the beginning of the text
+  /// Returns Tuple with DateTime (year 0 if no date) and remaining text
+  Tuple2<DateTime?, String> _extractTimeFromBeginning(String source) {
+    final RegExp timeRegex = RegExp(r'^([01]\d|2[0-3]):([0-5]\d)\s+(.*)$');
+    final match = timeRegex.firstMatch(source.trim());
+    
+    if (match != null) {
+      final hour = int.parse(match.group(1)!);
+      final minute = int.parse(match.group(2)!);
+      final remainingText = match.group(3)!;
+      final dateTime = DateTime(0, 0, 0, hour, minute);
+      return Tuple2(dateTime, remainingText);
+    }
+    
+    return Tuple2(null, source);
+  }
+
   Tuple2<TaskStatus, String> _extractTaskFeature(String source) {
     String textOnly;
 
@@ -169,6 +186,13 @@ class TaskParser extends MarkdownTaskMarkers {
       textOnly = taskFeature.item2;
     } else {
       textOnly = source;
+    }
+
+    // Try to extract time from the beginning (HH:MM format)
+    var timeFromBeginning = _extractTimeFromBeginning(textOnly);
+    DateTime? timeAtBeginning = timeFromBeginning.item1;
+    if (timeAtBeginning != null) {
+      textOnly = timeFromBeginning.item2;
     }
 
     var priority = _getPriority(source);
@@ -217,6 +241,18 @@ class TaskParser extends MarkdownTaskMarkers {
               scheduledTimeInReminderFormat.item1!.minute,
               1);
           textOnly = scheduledTimeInReminderFormat.item2;
+        }
+      } else if (timeAtBeginning != null) {
+        // If no (@HH:mm) format found, check if time was extracted from beginning
+        // Only apply if there's a scheduled date
+        if (scheduledDateRes.item1 != null) {
+          scheduledDateTime = DateTime(
+              scheduledDateRes.item1!.year,
+              scheduledDateRes.item1!.month,
+              scheduledDateRes.item1!.day,
+              timeAtBeginning.hour,
+              timeAtBeginning.minute,
+              1);
         }
       }
     }
