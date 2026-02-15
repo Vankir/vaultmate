@@ -126,7 +126,27 @@ class TaskEditorCubit extends Cubit<TaskEditorState> {
   }
 
   void setScheduledDate(DateTime? date) {
-    _currentTask.scheduled = date;
+    if (date == null) {
+      _currentTask.scheduled = null;
+      emit(TaskEditorInitial(_currentTask));
+      return;
+    }
+
+    final currentScheduled = _currentTask.scheduled;
+    if (currentScheduled != null && _currentTask.scheduledTime) {
+      _currentTask.scheduled = DateTime(
+        date.year,
+        date.month,
+        date.day,
+        currentScheduled.hour,
+        currentScheduled.minute,
+        currentScheduled.second,
+        currentScheduled.millisecond,
+        currentScheduled.microsecond,
+      );
+    } else {
+      _currentTask.scheduled = date;
+    }
     emit(TaskEditorInitial(_currentTask));
   }
 
