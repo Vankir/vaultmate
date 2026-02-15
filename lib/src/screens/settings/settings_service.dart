@@ -40,6 +40,7 @@ class SettingsService {
   static const String _chooseFileEnabledKey = "choose_file_enabled";
   static const String _lastSelectedFileKey = "last_selected_file";
   static const String _filePathPatternKey = "file_path_pattern";
+  static const String _showAITabKey = "show_ai_tab";
 
   Future<ThemeMode> themeMode() async => ThemeMode.system;
 
@@ -363,5 +364,15 @@ class SettingsService {
     } else {
       sharedPreferences.setString(_filePathPatternKey, pattern);
     }
+  }
+
+  Future<bool> showAITab() async {
+    var sharedPreferences = await SharedPreferences.getInstance();
+    return sharedPreferences.getBool(_showAITabKey) ?? false;
+  }
+
+  Future<void> updateShowAITab(bool value) async {
+    var sharedPreferences = await SharedPreferences.getInstance();
+    sharedPreferences.setBool(_showAITabKey, value);
   }
 }

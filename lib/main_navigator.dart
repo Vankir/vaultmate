@@ -48,6 +48,7 @@ class _MainNavigatorState extends State<MainNavigator> {
 
   /// Switch to AI tab and send a message
   void switchToAIWithMessage(String message) {
+    if (!_settings.showAITab) return; // Don't switch if AI tab is hidden
     setState(() {
       _currentScreen = 2;
     });
@@ -60,8 +61,15 @@ class _MainNavigatorState extends State<MainNavigator> {
   void _onSettingsChanged() {
     setState(() {
       _updateScreens();
+      // If AI tab was hidden and user was on it, switch to first tab
+      if (!_settings.showAITab && _currentScreen == 2) {
+        _currentScreen = 0;
+      }
       // If user now has premium and was on premium tab, switch to first tab
-      if (_settings.hasActiveSubscription && _currentScreen >= 2) {
+      // Account for AI tab being shown or hidden
+      int premiumTabIndex = _settings.showAITab ? 3 : 2;
+      if (_settings.hasActiveSubscription &&
+          _currentScreen >= premiumTabIndex) {
         _currentScreen = 0;
       }
     });
@@ -71,8 +79,12 @@ class _MainNavigatorState extends State<MainNavigator> {
     screens = [
       InboxTasks(InboxTasksCubit(widget.taskManager, true)),
       InboxTasks(InboxTasksCubit(widget.taskManager, false)),
-      AIAssistant(_aiAssistantCubit),
     ];
+
+    // Only add AI screen if showAITab is enabled
+    if (_settings.showAITab) {
+      screens.add(AIAssistant(_aiAssistantCubit));
+    }
 
     // Only add subscription screen if user doesn't have active subscription
     if (!_settings.hasActiveSubscription) {
@@ -86,9 +98,13 @@ class _MainNavigatorState extends State<MainNavigator> {
     List<BottomNavigationBarItem> navigationItems = [
       const BottomNavigationBarItem(icon: Icon(Icons.today), label: "Today"),
       const BottomNavigationBarItem(icon: Icon(Icons.inbox), label: "Inbox"),
-      const BottomNavigationBarItem(
-          icon: Icon(Icons.bubble_chart), label: "AI"),
     ];
+
+    // Only show AI tab if showAITab is enabled
+    if (_settings.showAITab) {
+      navigationItems.add(const BottomNavigationBarItem(
+          icon: Icon(Icons.bubble_chart), label: "AI"));
+    }
 
     // Only show Premium tab if user doesn't have active subscription
     if (!_settings.hasActiveSubscription) {

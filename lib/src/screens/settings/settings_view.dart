@@ -202,6 +202,36 @@ class _SettingsViewState extends State<SettingsView> {
               child: Column(children: [
                 const Align(
                     alignment: Alignment.centerLeft,
+                    child: Text("Show AI Assistant tab:")),
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        "Enable AI Assistant tab in the bottom navigation",
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: Colors.grey[600],
+                        ),
+                      ),
+                    ),
+                    Switch(
+                      value: widget.controller.showAITab,
+                      onChanged: (value) {
+                        widget.controller.updateShowAITab(value);
+                        setState(() {
+                          // Trigger UI rebuild after setting update
+                        });
+                      },
+                    ),
+                  ],
+                ),
+              ])),
+          Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(children: [
+                const Align(
+                    alignment: Alignment.centerLeft,
                     child: Text("Include tasks with today due day:")),
                 const SizedBox(height: 8),
                 Row(
