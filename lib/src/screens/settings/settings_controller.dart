@@ -251,6 +251,7 @@ class SettingsController with ChangeNotifier {
   bool _chooseFileEnabled = false;
   String? _lastSelectedFile;
   String? _filePathPattern;
+  bool _showAITab = false;
 
   bool _showOverdueOnly = false;
   bool _includeDueTasksInToday = true;
@@ -290,6 +291,7 @@ class SettingsController with ChangeNotifier {
   DateTime? get subscriptionExpiry => _subscriptionExpiry;
   DateTime? get reviewTasksReminderTime => _reviewTasksReminderTime;
   DateTime? get reviewCompletedReminderTime => _reviewCompletedReminderTime;
+  bool get showAITab => _showAITab;
 
   Future<void> loadSettings() async {
     _themeMode = await _settingsService.themeMode();
@@ -314,6 +316,7 @@ class SettingsController with ChangeNotifier {
     _chooseFileEnabled = await _settingsService.chooseFileEnabled();
     _lastSelectedFile = await _settingsService.lastSelectedFile();
     _filePathPattern = await _settingsService.filePathPattern();
+    _showAITab = await _settingsService.showAITab();
 
     // Future<void> updateNotificationTime(DateTime? newNotifTime) async {
     //   if (newNotifTime == notificationTime) return;
@@ -375,6 +378,14 @@ class SettingsController with ChangeNotifier {
 
     _filePathPattern = pattern;
     await _settingsService.updateFilePathPattern(pattern);
+  }
+
+  Future<void> updateShowAITab(bool value) async {
+    if (value == _showAITab) return;
+
+    _showAITab = value;
+    notifyListeners();
+    await _settingsService.updateShowAITab(value);
   }
 
   Future<void> updateViewMode(ViewMode newViewMode) async {
