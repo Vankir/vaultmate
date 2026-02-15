@@ -342,16 +342,25 @@ class TaskManager with ChangeNotifier {
     }
   }
 
-  Future saveTask(Task task, {String? filePath, String? saveMarker}) async {
-    return await saveTasks([task], filePath: filePath, saveMarker: saveMarker);
+  Future saveTask(Task task,
+      {String? filePath,
+      String? saveMarker,
+      bool dataViewDefaultMarkdownFormat = false}) async {
+    return await saveTasks([task],
+        filePath: filePath,
+        saveMarker: saveMarker,
+        dataViewDefaultMarkdownFormat: dataViewDefaultMarkdownFormat);
   }
 
   Future saveTasks(List<Task> tasks,
-      {String? filePath, String? saveMarker}) async {
+      {String? filePath,
+      String? saveMarker,
+      bool dataViewDefaultMarkdownFormat = false}) async {
     var fileIndex = filePath == null ? tasks[0].taskSource!.fileNumber : 0;
     var content = await TaskSaver(storage).saveTasks(tasks,
         filePath: filePath,
         dateTemplate: dateTemplate,
+        dataViewDefaultMarkdownFormat: dataViewDefaultMarkdownFormat,
         taskFilter: _taskFilter,
         saveMarker: saveMarker);
 

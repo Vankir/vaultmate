@@ -4,7 +4,6 @@ import 'package:obsi/src/core/notification_manager.dart';
 import 'package:obsi/src/core/storage/ios_tasks_file_storage.dart';
 import 'package:obsi/src/core/storage/storage_interfaces.dart';
 import 'package:obsi/src/core/subscription/subscription_manager.dart';
-import 'package:obsi/src/core/tasks/task_manager.dart';
 import 'dart:io';
 import 'settings_service.dart';
 import 'package:external_path/external_path.dart';
@@ -252,6 +251,7 @@ class SettingsController with ChangeNotifier {
   String? _lastSelectedFile;
   String? _filePathPattern;
   bool _showAITab = false;
+  bool _dataViewDefaultMarkdownFormat = false;
 
   bool _showOverdueOnly = false;
   bool _includeDueTasksInToday = true;
@@ -292,6 +292,7 @@ class SettingsController with ChangeNotifier {
   DateTime? get reviewTasksReminderTime => _reviewTasksReminderTime;
   DateTime? get reviewCompletedReminderTime => _reviewCompletedReminderTime;
   bool get showAITab => _showAITab;
+  bool get dataViewDefaultMarkdownFormat => _dataViewDefaultMarkdownFormat;
 
   Future<void> loadSettings() async {
     _themeMode = await _settingsService.themeMode();
@@ -299,6 +300,8 @@ class SettingsController with ChangeNotifier {
     _vaultName = await _settingsService.vaultName();
     _tasksFile = await _settingsService.tasksFile();
     _dateTemplate = await _settingsService.dateTemplate();
+    _dataViewDefaultMarkdownFormat =
+        await _settingsService.dataViewDefaultMarkdownFormat();
     // _notificationTime = await _settingsService.notificationTime();
     _viewMode = await _settingsService.viewMode();
     _sortMode = await _settingsService.sortMode();
@@ -451,6 +454,14 @@ class SettingsController with ChangeNotifier {
     _dateTemplate = newDateTemplate;
     notifyListeners();
     await _settingsService.updateDateTemplate(newDateTemplate);
+  }
+
+  Future<void> updateDataViewDefaultMarkdownFormat(bool value) async {
+    if (value == _dataViewDefaultMarkdownFormat) return;
+
+    _dataViewDefaultMarkdownFormat = value;
+    notifyListeners();
+    await _settingsService.updateDataViewDefaultMarkdownFormat(value);
   }
 
   Future<void> updateTasksFile(String newTasksFile) async {

@@ -69,6 +69,8 @@ class TaskEditorCubit extends Cubit<TaskEditorState> {
         _currentTask,
         filePath: filePath,
         saveMarker: saveMarker,
+        dataViewDefaultMarkdownFormat:
+            SettingsController.getInstance().dataViewDefaultMarkdownFormat,
       );
 
       if (context.mounted) {

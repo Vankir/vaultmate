@@ -86,6 +86,70 @@ void main() {
       expect(newTask.scheduledTime, equals(true));
     });
 
+    test("TaskParser.toTaskString: dataview format serialization", () {
+      final task = Task('Dataview task',
+          status: TaskStatus.todo,
+          priority: TaskPriority.high,
+          created: DateTime(2024, 4, 6),
+          due: DateTime(2024, 4, 7),
+          scheduled: DateTime(2024, 4, 8, 10, 20),
+          scheduledTime: true,
+          recurranceRule: 'every day');
+
+      final serialized =
+          TaskParser().toTaskString(task, dataViewDefaultMarkdownFormat: true);
+
+      expect(serialized, contains('[created:: 2024-04-06]'));
+      expect(serialized, contains('[due:: 2024-04-07]'));
+      expect(serialized, contains('[scheduled:: 2024-04-08T10:20:00]'));
+      expect(serialized, contains('[priority:: high]'));
+      expect(serialized, contains('[repeat:: every day]'));
+      expect(serialized, isNot(contains('📅')));
+      expect(serialized, isNot(contains('⏫')));
+      expect(serialized, isNot(contains('🔁')));
+    });
+
+    test("TaskParser.toTaskString: dataview scheduled without time", () {
+      final task = Task('Date only schedule',
+          status: TaskStatus.todo,
+          scheduled: DateTime(2024, 6, 1),
+          scheduledTime: false);
+
+      final serialized =
+          TaskParser().toTaskString(task, dataViewDefaultMarkdownFormat: true);
+
+      expect(serialized, contains('[scheduled:: 2024-06-01]'));
+      expect(serialized, isNot(contains('T00:00:00')));
+    });
+
+    test("TaskParser.toTaskString: dataview omits normal and empty metadata",
+        () {
+      final task = Task('Minimal dataview task',
+          status: TaskStatus.todo,
+          priority: TaskPriority.normal,
+          recurranceRule: '');
+
+      final serialized =
+          TaskParser().toTaskString(task, dataViewDefaultMarkdownFormat: true);
+
+      expect(serialized, isNot(contains('[priority::')));
+      expect(serialized, isNot(contains('[repeat::')));
+    });
+
+    test("TaskParser: dataview roundtrip normalizes to bracket syntax", () {
+      const source =
+          '- [ ] Normalize me (due:: 2024-07-10), (priority:: highest)';
+
+      final parsed = TaskParser().build(source);
+      final serialized = TaskParser()
+          .toTaskString(parsed, dataViewDefaultMarkdownFormat: true);
+
+      expect(serialized, contains('[due:: 2024-07-10]'));
+      expect(serialized, contains('[priority:: highest]'));
+      expect(serialized, isNot(contains('(due::')));
+      expect(serialized, isNot(contains('(priority::')));
+    });
+
     test('change task status in file', () async {
       var fileStorage = InMemoryTasksFileStorage();
       await fileStorage

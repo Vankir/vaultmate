@@ -376,6 +376,58 @@ Final text line''';
         expect(tasks[0].description,
             'Dataview with unsupported fields [id:: dcf64c] [dependsOn:: dcf64c,0h17ye] [onCompletion:: delete]');
       });
+
+      test('should parse supported Dataview fields with mixed delimiters', () {
+        const content =
+            '- [ ] Mixed delimiters [created:: 2024-01-10], (due:: 2024-01-12) [repeat:: every week]';
+
+        final tasks = Parser.parseTasks('test.md', content);
+
+        expect(tasks.length, 1);
+        expect(tasks[0].description, 'Mixed delimiters ,');
+        expect(tasks[0].created, DateTime(2024, 1, 10));
+        expect(tasks[0].due, DateTime(2024, 1, 12));
+        expect(tasks[0].recurrenceRule, 'every week');
+      });
+
+      test('should use last Dataview value when same supported field repeats',
+          () {
+        const content =
+            '- [ ] Repeated due [due:: 2024-05-01] [due:: 2024-05-10]';
+
+        final tasks = Parser.parseTasks('test.md', content);
+
+        expect(tasks.length, 1);
+        expect(tasks[0].due, DateTime(2024, 5, 10));
+      });
+
+      test('should ignore invalid Dataview values and keep parsable ones', () {
+        const content =
+            '- [ ] Invalid values [due:: invalid] [scheduled:: 2024-04-14T09:30:00] [priority:: unknown]';
+
+        final tasks = Parser.parseTasks('test.md', content);
+
+        expect(tasks.length, 1);
+        expect(tasks[0].due, isNull);
+        expect(tasks[0].scheduled, DateTime(2024, 4, 14, 9, 30, 1));
+        expect(tasks[0].scheduledTime, true);
+        expect(tasks[0].priority, TaskPriority.normal);
+      });
+
+      test('should not parse Dataview fields when emoji metadata is present',
+          () {
+        const content =
+            '- [ ] Emoji wins 📅 2024-03-20 [priority:: highest] [repeat:: every day]';
+
+        final tasks = Parser.parseTasks('test.md', content);
+
+        expect(tasks.length, 1);
+        expect(tasks[0].due, DateTime(2024, 3, 20));
+        expect(tasks[0].priority, TaskPriority.normal);
+        expect(tasks[0].recurrenceRule, isNull);
+        expect(tasks[0].description,
+            'Emoji wins [priority:: highest] [repeat:: every day]');
+      });
     });
   });
 }

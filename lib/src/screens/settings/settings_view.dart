@@ -151,6 +151,24 @@ class _SettingsViewState extends State<SettingsView> {
               child: Column(children: [
                 const Align(
                     alignment: Alignment.centerLeft,
+                    child: Text("Dataview default markdown format:")),
+                const SizedBox(height: 8),
+                SwitchListTile(
+                  contentPadding: EdgeInsets.zero,
+                  title: const Text('Use Dataview format when saving tasks'),
+                  subtitle: const Text('Disable to use Emoji format'),
+                  value: widget.controller.dataViewDefaultMarkdownFormat,
+                  onChanged: (value) {
+                    widget.controller
+                        .updateDataViewDefaultMarkdownFormat(value);
+                  },
+                ),
+              ])),
+          Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(children: [
+                const Align(
+                    alignment: Alignment.centerLeft,
                     child: Text("Save Marker (for file selection): ")),
                 TextField(
                   controller: _saveMarkerController,

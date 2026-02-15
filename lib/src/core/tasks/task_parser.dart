@@ -308,13 +308,6 @@ class TaskParser extends MarkdownTaskMarkers {
     return _fromString(status, contentSource, taskSource: taskSource);
   }
 
-  static var taskStatuses = {
-    TaskStatus.todo: "[ ]",
-    TaskStatus.inprogress: "[/]",
-    TaskStatus.done: "[x]",
-    TaskStatus.cancelled: "[-]"
-  };
-
   String _saveDate(String marker, String inputFormat, DateTime? date) {
     if (date == null) {
       return "";
@@ -331,8 +324,15 @@ class TaskParser extends MarkdownTaskMarkers {
   }
 
   String toTaskString(Task task,
-      {String dateTemplate = "yyyy-MM-dd", String taskFilter = ""}) {
-    var serializedTask = "- ${taskStatuses[task.status]} ";
+      {String dateTemplate = "yyyy-MM-dd",
+      String taskFilter = "",
+      bool dataViewDefaultMarkdownFormat = false}) {
+    if (dataViewDefaultMarkdownFormat) {
+      return _dataviewParser.toTaskString(task,
+          dateTemplate: dateTemplate, taskFilter: taskFilter);
+    }
+
+    var serializedTask = "- ${MarkdownTaskMarkers.taskStatuses[task.status]} ";
     if (task.description != null) {
       serializedTask += task.description!;
       if (taskFilter.isNotEmpty) {

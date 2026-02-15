@@ -1,5 +1,3 @@
-import 'dart:io';
-
 import 'package:logger/logger.dart';
 import 'package:obsi/src/core/tasks/task.dart';
 import 'package:obsi/src/core/tasks/task_parser.dart';
@@ -20,6 +18,7 @@ class TaskSaver {
       {String? filePath,
       String dateTemplate = "yyyy-MM-dd",
       String taskFilter = "",
+      bool dataViewDefaultMarkdownFormat = false,
       String? saveMarker}) async {
     if (tasks[0].taskSource == null && filePath == null) {
       return null;
@@ -54,8 +53,8 @@ class TaskSaver {
         }
       }
 
-      savedContent =
-          _createNewContent(tasks, content, filePath, dateTemplate, taskFilter);
+      savedContent = _createNewContent(tasks, content, filePath, dateTemplate,
+          taskFilter, dataViewDefaultMarkdownFormat);
     }
     Logger().i("Content saved: $savedContent");
     await file.writeAsString(savedContent);
@@ -80,8 +79,13 @@ class TaskSaver {
     return insertPosition;
   }
 
-  String _createNewContent(List<Task> tasks, String content, String? filePath,
-      String dateTemplate, String taskFilter) {
+  String _createNewContent(
+      List<Task> tasks,
+      String content,
+      String? filePath,
+      String dateTemplate,
+      String taskFilter,
+      bool dataViewDefaultMarkdownFormat) {
     int taskOffset = tasks[0].taskSource == null
         ? content.length
         : tasks[0].taskSource!.offset;
@@ -96,7 +100,9 @@ class TaskSaver {
     String serializedTask = filePath != null ? "\n" : "";
     for (var task in tasks) {
       serializedTask += TaskParser().toTaskString(task,
-          dateTemplate: dateTemplate, taskFilter: taskFilter);
+          dateTemplate: dateTemplate,
+          taskFilter: taskFilter,
+          dataViewDefaultMarkdownFormat: dataViewDefaultMarkdownFormat);
       if (tasks.length > 1) {
         serializedTask += "\n";
       }

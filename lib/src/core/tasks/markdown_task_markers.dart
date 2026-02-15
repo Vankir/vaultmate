@@ -1,6 +1,13 @@
 import 'package:obsi/src/core/tasks/task.dart';
 
 class MarkdownTaskMarkers {
+  static const Map<TaskStatus, String> taskStatuses = {
+    TaskStatus.todo: "[ ]",
+    TaskStatus.inprogress: "[/]",
+    TaskStatus.done: "[x]",
+    TaskStatus.cancelled: "[-]"
+  };
+
   static var createdDateMarker = '➕';
 
   static var recurringDateMarker = '🔁';
