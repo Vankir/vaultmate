@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
 import 'package:obsi/src/screens/notes_widget_config/cubit/notes_widget_config_cubit.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -41,6 +40,8 @@ class SettingsService {
   static const String _lastSelectedFileKey = "last_selected_file";
   static const String _filePathPatternKey = "file_path_pattern";
   static const String _showAITabKey = "show_ai_tab";
+  static const String _dataViewDefaultMarkdownFormatKey =
+      "data_view_default_markdown_format";
 
   Future<ThemeMode> themeMode() async => ThemeMode.system;
 
@@ -67,6 +68,23 @@ class SettingsService {
   Future<String?> dateTemplate() async {
     var sharedPreferences = await SharedPreferences.getInstance();
     return sharedPreferences.getString(_dateTemplateKey);
+  }
+
+  Future<bool> dataViewDefaultMarkdownFormat() async {
+    var sharedPreferences = await SharedPreferences.getInstance();
+    final storedFlag =
+        sharedPreferences.getBool(_dataViewDefaultMarkdownFormatKey);
+    if (storedFlag != null) {
+      return storedFlag;
+    }
+
+    // Backward compatibility for old enum-based persistence.
+    var legacyTaskFormatString = sharedPreferences.getString('task_format');
+    if (legacyTaskFormatString != null) {
+      return legacyTaskFormatString.endsWith('dataview');
+    }
+
+    return false;
   }
 
   // Future<DateTime?> notificationTime() async {
@@ -192,6 +210,11 @@ class SettingsService {
   Future<void> updateDateTemplate(String dateTemplate) async {
     var sharedPreferences = await SharedPreferences.getInstance();
     sharedPreferences.setString(_dateTemplateKey, dateTemplate);
+  }
+
+  Future<void> updateDataViewDefaultMarkdownFormat(bool value) async {
+    var sharedPreferences = await SharedPreferences.getInstance();
+    sharedPreferences.setBool(_dataViewDefaultMarkdownFormatKey, value);
   }
 
   Future<void> updateGlobalTaskFilter(String? globalTaskFilter) async {

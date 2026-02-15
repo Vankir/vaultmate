@@ -1,12 +1,14 @@
 import 'package:intl/intl.dart';
 import 'package:logger/logger.dart';
 import 'package:obsi/src/core/tasks/markdown_task_markers.dart';
+import 'package:obsi/src/core/tasks/parsers/dataview_task_fields_parser.dart';
 import 'package:obsi/src/core/tasks/task.dart';
 import 'package:obsi/src/core/tasks/task_source.dart';
 import 'package:tuple/tuple.dart';
 
 class TaskParser extends MarkdownTaskMarkers {
   static const taskFeaturePattern = r'\[[^\]]*\]';
+  final DataviewTaskFieldsParser _dataviewParser = DataviewTaskFieldsParser();
 
   TaskStatus _getStatus(source) {
     var statuses = {
@@ -151,7 +153,7 @@ class TaskParser extends MarkdownTaskMarkers {
   Tuple2<DateTime?, String> _extractTimeFromBeginning(String source) {
     final RegExp timeRegex = RegExp(r'^([01]\d|2[0-3]):([0-5]\d)\s+(.*)$');
     final match = timeRegex.firstMatch(source.trim());
-    
+
     if (match != null) {
       final hour = int.parse(match.group(1)!);
       final minute = int.parse(match.group(2)!);
@@ -159,7 +161,7 @@ class TaskParser extends MarkdownTaskMarkers {
       final dateTime = DateTime(0, 0, 0, hour, minute);
       return Tuple2(dateTime, remainingText);
     }
-    
+
     return Tuple2(null, source);
   }
 
@@ -180,6 +182,7 @@ class TaskParser extends MarkdownTaskMarkers {
   Task _fromString(TaskStatus? status, String source,
       {TaskSource? taskSource}) {
     String textOnly;
+    var dataview = DataviewParseResult(cleanedText: '');
     if (status == null) {
       var taskFeature = _extractTaskFeature(source);
       status = taskFeature.item1;
@@ -268,17 +271,35 @@ class TaskParser extends MarkdownTaskMarkers {
         textOnly, MarkdownTaskMarkers.recurringDateMarker);
     textOnly = recurranceRule.item2;
 
+    final parsedWithEmojiFormat = priority.item2.isNotEmpty ||
+        createdDate.item1 != null ||
+        dueDate.item1 != null ||
+        startDate.item1 != null ||
+        scheduledDateTime != null ||
+        doneDate.item1 != null ||
+        cancelledDate.item1 != null ||
+        recurranceRule.item1 != null;
+
+    if (!parsedWithEmojiFormat) {
+      dataview = _dataviewParser.extract(textOnly);
+      textOnly = dataview.cleanedText;
+    }
+
+    final resolvedPriority = dataview.priority ?? priority.item1;
+
+    final resolvedScheduled = scheduledDateTime ?? dataview.scheduled;
+
     return Task(textOnly.trim(),
         status: status,
-        priority: priority.item1,
-        created: createdDate.item1,
-        due: dueDate.item1,
-        start: startDate.item1,
-        scheduled: scheduledDateTime,
-        scheduledTime: scheduledDateTime?.second == 1,
-        done: doneDate.item1,
-        cancelled: cancelledDate.item1,
-        recurranceRule: recurranceRule.item1,
+        priority: resolvedPriority,
+        created: createdDate.item1 ?? dataview.created,
+        due: dueDate.item1 ?? dataview.due,
+        start: startDate.item1 ?? dataview.start,
+        scheduled: resolvedScheduled,
+        scheduledTime: resolvedScheduled?.second == 1,
+        done: doneDate.item1 ?? dataview.completion,
+        cancelled: cancelledDate.item1 ?? dataview.cancelled,
+        recurranceRule: recurranceRule.item1 ?? dataview.repeat,
         taskSource: taskSource);
   }
 
@@ -286,13 +307,6 @@ class TaskParser extends MarkdownTaskMarkers {
       {TaskStatus? status, TaskSource? taskSource}) {
     return _fromString(status, contentSource, taskSource: taskSource);
   }
-
-  static var taskStatuses = {
-    TaskStatus.todo: "[ ]",
-    TaskStatus.inprogress: "[/]",
-    TaskStatus.done: "[x]",
-    TaskStatus.cancelled: "[-]"
-  };
 
   String _saveDate(String marker, String inputFormat, DateTime? date) {
     if (date == null) {
@@ -310,8 +324,15 @@ class TaskParser extends MarkdownTaskMarkers {
   }
 
   String toTaskString(Task task,
-      {String dateTemplate = "yyyy-MM-dd", String taskFilter = ""}) {
-    var serializedTask = "- ${taskStatuses[task.status]} ";
+      {String dateTemplate = "yyyy-MM-dd",
+      String taskFilter = "",
+      bool dataViewDefaultMarkdownFormat = false}) {
+    if (dataViewDefaultMarkdownFormat) {
+      return _dataviewParser.toTaskString(task,
+          dateTemplate: dateTemplate, taskFilter: taskFilter);
+    }
+
+    var serializedTask = "- ${MarkdownTaskMarkers.taskStatuses[task.status]} ";
     if (task.description != null) {
       serializedTask += task.description!;
       if (taskFilter.isNotEmpty) {

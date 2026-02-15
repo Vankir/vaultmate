@@ -195,6 +195,9 @@ class ObsiChatBubble extends StatelessWidget {
 
   Future _onTaskCardAddTaskPressed(
       BuildContext context, Task task, String? createTasksPath) async {
-    await taskManager.saveTask(task, filePath: createTasksPath);
+    await taskManager.saveTask(task,
+        filePath: createTasksPath,
+        dataViewDefaultMarkdownFormat:
+            SettingsController.getInstance().dataViewDefaultMarkdownFormat);
   }
 }
