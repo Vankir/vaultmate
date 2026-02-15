@@ -200,9 +200,7 @@ class _TaskEditorState extends State<TaskEditor> {
                             Row(children: [
                               addDateTimePicker(
                                 _scheduledTime,
-                                state.task == null || !state.task!.scheduledTime
-                                    ? DateTime.now()
-                                    : state.task?.scheduled,
+                                state.task?.scheduled ?? DateTime.now(),
                                 context,
                                 (date) {
                                   context
