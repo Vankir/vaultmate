@@ -44,6 +44,21 @@ void onStart(ServiceInstance service) async {
     return;
   }
 
+  // Load settings once and reuse
+  final settings = SettingsController.getInstance(
+    settingsService: SettingsService(),
+  );
+  await settings.loadSettings();
+
+  // Debounce widget updates to avoid excessive refreshes
+  Timer? widgetUpdateTimer;
+  void scheduleWidgetUpdate() {
+    widgetUpdateTimer?.cancel();
+    widgetUpdateTimer = Timer(const Duration(seconds: 2), () async {
+      await _updateHomeWidget(vaultDirectory, settings, logger);
+    });
+  }
+
   final watcher = DirectoryWatcher(vaultDirectory);
 
   service.on('stopService').listen((event) {
@@ -51,36 +66,48 @@ void onStart(ServiceInstance service) async {
     service.stopSelf();
   });
 
-  Future<void> processMarkdownFile(String filePath) async {
+  Future<void> processMarkdownFile(String filePath,
+      {bool isDeleted = false}) async {
     try {
-      final file = File(filePath);
-      if (!await file.exists() || !filePath.endsWith('.md')) {
+      if (!filePath.endsWith('.md')) {
         return;
       }
 
-      logger.d('Processing file: $filePath');
-      final tasksFile = AndroidTasksFile(file);
-      final tasks = await Parser.readTasks(tasksFile);
+      bool shouldUpdateWidget = false;
 
-      bool hasScheduledTasks = false;
-      for (final task in tasks) {
-        await _scheduleNotificationForTask(
-          task,
-          filePath,
-          notificationStateManager,
-          notificationManager,
-          logger,
-        );
+      if (isDeleted) {
+        // File was deleted, update widget to remove tasks from it
+        logger.d('File deleted: $filePath');
+        shouldUpdateWidget = true;
+      } else {
+        final file = File(filePath);
+        if (!await file.exists()) {
+          return;
+        }
 
-        // Check if any tasks are scheduled for today
-        if (task.scheduled != null && _isToday(task.scheduled!)) {
-          hasScheduledTasks = true;
+        logger.d('Processing file: $filePath');
+        final tasksFile = AndroidTasksFile(file);
+        final tasks = await Parser.readTasks(tasksFile);
+
+        for (final task in tasks) {
+          await _scheduleNotificationForTask(
+            task,
+            filePath,
+            notificationStateManager,
+            notificationManager,
+            logger,
+          );
+
+          // Check if any tasks are scheduled for today
+          if (task.scheduled != null && _isToday(task.scheduled!)) {
+            shouldUpdateWidget = true;
+          }
         }
       }
 
-      // Update home widget if there are tasks scheduled for today
-      if (hasScheduledTasks) {
-        await _updateHomeWidget(vaultDirectory, logger);
+      // Debounce widget updates to avoid excessive refreshes
+      if (shouldUpdateWidget) {
+        scheduleWidgetUpdate();
       }
     } catch (e, stackTrace) {
       logger.e('Error processing file $filePath',
@@ -108,6 +135,9 @@ void onStart(ServiceInstance service) async {
 
     if (event.type == ChangeType.MODIFY || event.type == ChangeType.ADD) {
       await processMarkdownFile(event.path);
+    } else if (event.type == ChangeType.REMOVE) {
+      // Handle file deletion - update widget if it had today's tasks
+      await processMarkdownFile(event.path, isDeleted: true);
     }
   }, onError: (error, stackTrace) {
     logger.e('Watcher error', error: error, stackTrace: stackTrace);
@@ -199,14 +229,13 @@ bool _isToday(DateTime date) {
       date.day == now.day;
 }
 
-Future<void> _updateHomeWidget(String vaultDirectory, Logger logger) async {
+Future<void> _updateHomeWidget(
+  String vaultDirectory,
+  SettingsController settings,
+  Logger logger,
+) async {
   try {
     logger.d('Updating home widget with today\'s tasks');
-
-    final settings = SettingsController.getInstance(
-      settingsService: SettingsService(),
-    );
-    await settings.loadSettings();
 
     final taskManager = TaskManager(
       ChangedFilesStorage(AndroidTasksFileStorage()),
@@ -223,7 +252,7 @@ Future<void> _updateHomeWidget(String vaultDirectory, Logger logger) async {
     final todayTasks = await taskManager.getTodayTasks();
     await HomeWidgetHandler.updateWidget(todayTasks);
 
-    logger.i('Home widget updated with ${todayTasks.length} tasks');
+    logger.i('✓ Home widget updated with ${todayTasks.length} tasks');
   } catch (e, stackTrace) {
     logger.e('Error updating home widget', error: e, stackTrace: stackTrace);
   }
