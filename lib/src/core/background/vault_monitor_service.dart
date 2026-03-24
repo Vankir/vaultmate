@@ -6,8 +6,13 @@ import 'package:logger/logger.dart';
 import 'package:obsi/src/core/background/notification_state_manager.dart';
 import 'package:obsi/src/core/notification_manager.dart';
 import 'package:obsi/src/core/storage/android_tasks_file_storage.dart';
+import 'package:obsi/src/core/storage/changed_files_storage.dart';
+import 'package:obsi/src/core/system_widget.dart';
 import 'package:obsi/src/core/tasks/parsers/parser.dart';
 import 'package:obsi/src/core/tasks/task.dart';
+import 'package:obsi/src/core/tasks/task_manager.dart';
+import 'package:obsi/src/screens/settings/settings_controller.dart';
+import 'package:obsi/src/screens/settings/settings_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:watcher/watcher.dart';
 import 'package:path/path.dart' as path;
@@ -57,6 +62,7 @@ void onStart(ServiceInstance service) async {
       final tasksFile = AndroidTasksFile(file);
       final tasks = await Parser.readTasks(tasksFile);
 
+      bool hasScheduledTasks = false;
       for (final task in tasks) {
         await _scheduleNotificationForTask(
           task,
@@ -65,6 +71,16 @@ void onStart(ServiceInstance service) async {
           notificationManager,
           logger,
         );
+
+        // Check if any tasks are scheduled for today
+        if (task.scheduled != null && _isToday(task.scheduled!)) {
+          hasScheduledTasks = true;
+        }
+      }
+
+      // Update home widget if there are tasks scheduled for today
+      if (hasScheduledTasks) {
+        await _updateHomeWidget(vaultDirectory, logger);
       }
     } catch (e, stackTrace) {
       logger.e('Error processing file $filePath',
@@ -174,4 +190,41 @@ int _generateNotificationId(
   final combined = '$filePath|$description|${scheduled.toIso8601String()}';
   // Ensure ID fits in 32-bit signed integer range
   return combined.hashCode.abs() % 2147483647;
+}
+
+bool _isToday(DateTime date) {
+  final now = DateTime.now();
+  return date.year == now.year &&
+      date.month == now.month &&
+      date.day == now.day;
+}
+
+Future<void> _updateHomeWidget(String vaultDirectory, Logger logger) async {
+  try {
+    logger.d('Updating home widget with today\'s tasks');
+
+    final settings = SettingsController.getInstance(
+      settingsService: SettingsService(),
+    );
+    await settings.loadSettings();
+
+    final taskManager = TaskManager(
+      ChangedFilesStorage(AndroidTasksFileStorage()),
+      todoOnly: false,
+    );
+
+    taskManager.dateTemplate = settings.dateTemplate;
+
+    await taskManager.loadTasks(
+      vaultDirectory,
+      taskFilter: settings.globalTaskFilter,
+    );
+
+    final todayTasks = await taskManager.getTodayTasks();
+    await HomeWidgetHandler.updateWidget(todayTasks);
+
+    logger.i('Home widget updated with ${todayTasks.length} tasks');
+  } catch (e, stackTrace) {
+    logger.e('Error updating home widget', error: e, stackTrace: stackTrace);
+  }
 }
