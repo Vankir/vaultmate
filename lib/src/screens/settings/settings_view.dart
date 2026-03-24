@@ -5,6 +5,7 @@ import 'package:filesystem_picker/filesystem_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_datetime_picker_plus/flutter_datetime_picker_plus.dart';
 import 'package:intl/intl.dart';
+import 'package:obsi/src/core/background/background_service_initializer.dart';
 import 'package:obsi/src/core/utils.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -56,6 +57,53 @@ class _SettingsViewState extends State<SettingsView> {
     setState(() {
       // Trigger rebuild when controller notifies changes
     });
+  }
+
+  void _handleBackgroundMonitoringChange(bool enabled) async {
+    if (!Platform.isAndroid) return;
+
+    final backgroundService = BackgroundServiceInitializer();
+
+    if (enabled) {
+      // Start the service if vault directory is configured
+      if (widget.controller.vaultDirectory != null &&
+          widget.controller.vaultDirectory!.isNotEmpty) {
+        await backgroundService.initialize();
+        await backgroundService.startService(widget.controller.vaultDirectory!);
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Background monitoring enabled'),
+              duration: Duration(seconds: 2),
+            ),
+          );
+        }
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Please configure vault directory first'),
+              duration: Duration(seconds: 2),
+            ),
+          );
+        }
+        // Revert the setting
+        await widget.controller.updateBackgroundMonitoringEnabled(false);
+      }
+    } else {
+      // Stop the service
+      await backgroundService.stopService();
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Background monitoring disabled'),
+            duration: Duration(seconds: 2),
+          ),
+        );
+      }
+    }
   }
 
   @override
@@ -164,6 +212,29 @@ class _SettingsViewState extends State<SettingsView> {
                   },
                 ),
               ])),
+          if (Platform.isAndroid)
+            Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(children: [
+                  const Align(
+                      alignment: Alignment.centerLeft,
+                      child: Text("Background Monitoring:")),
+                  const SizedBox(height: 8),
+                  SwitchListTile(
+                    contentPadding: EdgeInsets.zero,
+                    title: const Text('Enable background task monitoring'),
+                    subtitle: const Text(
+                        'Monitor vault changes and schedule notifications when new tasks with scheduled times are added'),
+                    value: widget.controller.backgroundMonitoringEnabled,
+                    onChanged: (value) async {
+                      await widget.controller
+                          .updateBackgroundMonitoringEnabled(value);
+                      if (mounted) {
+                        _handleBackgroundMonitoringChange(value);
+                      }
+                    },
+                  ),
+                ])),
           Padding(
               padding: const EdgeInsets.all(16),
               child: Column(children: [

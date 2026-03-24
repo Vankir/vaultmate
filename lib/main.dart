@@ -56,7 +56,7 @@ void main() async {
     taskManager.loadTasks(settingsController.vaultDirectory!,
         taskFilter: settingsController.globalTaskFilter);
 
-    if (Platform.isAndroid) {
+    if (Platform.isAndroid && settingsController.backgroundMonitoringEnabled) {
       final backgroundService = BackgroundServiceInitializer();
       await backgroundService.initialize();
       await backgroundService.startService(settingsController.vaultDirectory!);
