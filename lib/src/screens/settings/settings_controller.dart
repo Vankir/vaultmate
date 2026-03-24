@@ -252,6 +252,7 @@ class SettingsController with ChangeNotifier {
   String? _filePathPattern;
   bool _showAITab = false;
   bool _dataViewDefaultMarkdownFormat = false;
+  bool _backgroundMonitoringEnabled = false;
 
   bool _showOverdueOnly = false;
   bool _includeDueTasksInToday = true;
@@ -293,6 +294,7 @@ class SettingsController with ChangeNotifier {
   DateTime? get reviewCompletedReminderTime => _reviewCompletedReminderTime;
   bool get showAITab => _showAITab;
   bool get dataViewDefaultMarkdownFormat => _dataViewDefaultMarkdownFormat;
+  bool get backgroundMonitoringEnabled => _backgroundMonitoringEnabled;
 
   Future<void> loadSettings() async {
     _themeMode = await _settingsService.themeMode();
@@ -320,6 +322,8 @@ class SettingsController with ChangeNotifier {
     _lastSelectedFile = await _settingsService.lastSelectedFile();
     _filePathPattern = await _settingsService.filePathPattern();
     _showAITab = await _settingsService.showAITab();
+    _backgroundMonitoringEnabled =
+        await _settingsService.backgroundMonitoringEnabled();
 
     // Future<void> updateNotificationTime(DateTime? newNotifTime) async {
     //   if (newNotifTime == notificationTime) return;
@@ -389,6 +393,14 @@ class SettingsController with ChangeNotifier {
     _showAITab = value;
     notifyListeners();
     await _settingsService.updateShowAITab(value);
+  }
+
+  Future<void> updateBackgroundMonitoringEnabled(bool value) async {
+    if (value == _backgroundMonitoringEnabled) return;
+
+    _backgroundMonitoringEnabled = value;
+    notifyListeners();
+    await _settingsService.updateBackgroundMonitoringEnabled(value);
   }
 
   Future<void> updateViewMode(ViewMode newViewMode) async {

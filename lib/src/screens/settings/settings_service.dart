@@ -42,6 +42,8 @@ class SettingsService {
   static const String _showAITabKey = "show_ai_tab";
   static const String _dataViewDefaultMarkdownFormatKey =
       "data_view_default_markdown_format";
+  static const String _backgroundMonitoringEnabledKey =
+      "background_monitoring_enabled";
 
   Future<ThemeMode> themeMode() async => ThemeMode.system;
 
@@ -397,5 +399,15 @@ class SettingsService {
   Future<void> updateShowAITab(bool value) async {
     var sharedPreferences = await SharedPreferences.getInstance();
     sharedPreferences.setBool(_showAITabKey, value);
+  }
+
+  Future<bool> backgroundMonitoringEnabled() async {
+    var sharedPreferences = await SharedPreferences.getInstance();
+    return sharedPreferences.getBool(_backgroundMonitoringEnabledKey) ?? false;
+  }
+
+  Future<void> updateBackgroundMonitoringEnabled(bool value) async {
+    var sharedPreferences = await SharedPreferences.getInstance();
+    sharedPreferences.setBool(_backgroundMonitoringEnabledKey, value);
   }
 }

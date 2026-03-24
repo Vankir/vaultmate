@@ -1,8 +1,10 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:home_widget/home_widget.dart';
 import 'package:logger/logger.dart';
+import 'package:obsi/src/core/background/background_service_initializer.dart';
 import 'package:obsi/src/core/notification_manager.dart';
 import 'package:obsi/src/core/storage/storage_interfaces.dart';
 import 'package:obsi/src/core/tasks/task_manager.dart';
@@ -27,6 +29,10 @@ void main() async {
   var notificationManager = NotificationManager.getInstance();
   await notificationManager.initialize();
 
+  if (Platform.isAndroid) {
+    await _createBackgroundServiceNotificationChannel();
+  }
+
   // Initialize subscription manager
   final subscriptionManager = SubscriptionManager.instance;
   await subscriptionManager.initialize();
@@ -49,10 +55,34 @@ void main() async {
       settingsController.vaultDirectory != '') {
     taskManager.loadTasks(settingsController.vaultDirectory!,
         taskFilter: settingsController.globalTaskFilter);
+
+    if (Platform.isAndroid && settingsController.backgroundMonitoringEnabled) {
+      final backgroundService = BackgroundServiceInitializer();
+      await backgroundService.initialize();
+      await backgroundService.startService(settingsController.vaultDirectory!);
+    }
   }
 
   runApp(App(
     settingsController: settingsController,
     taskManager: taskManager,
   ));
+}
+
+Future<void> _createBackgroundServiceNotificationChannel() async {
+  final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
+      FlutterLocalNotificationsPlugin();
+
+  const AndroidNotificationChannel channel = AndroidNotificationChannel(
+    'vault_monitor_service',
+    'Vault Monitor Service',
+    description: 'Background service monitoring vault for task changes',
+    importance: Importance.low,
+    showBadge: false,
+  );
+
+  await flutterLocalNotificationsPlugin
+      .resolvePlatformSpecificImplementation<
+          AndroidFlutterLocalNotificationsPlugin>()
+      ?.createNotificationChannel(channel);
 }
