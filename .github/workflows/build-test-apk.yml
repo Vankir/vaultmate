@@ -1,0 +1,180 @@
+name: Build Premium APK
+
+on:
+  # Manual trigger - uses latest tag automatically
+  workflow_dispatch:
+    inputs:
+      create_release:
+        description: 'Create GitHub Release'
+        required: true
+        type: boolean
+        default: true
+      use_latest_tag:
+        description: 'Use latest non-test tag version'
+        required: true
+        type: boolean
+        default: true
+
+  # Trigger on test tags
+  push:
+    tags:
+      - 'v*-test'
+
+jobs:
+  build_test_apk:
+    name: Build Test APK
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.35.1'
+          channel: 'stable'
+
+      - name: Get version info
+        id: version
+        run: |
+          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+            if [ "${{ inputs.use_latest_tag }}" == "true" ]; then
+              # Get latest non-test tag
+              LATEST_TAG=$(git tag -l 'v*' --sort=-v:refname | grep -v 'test' | head -n 1)
+              if [ -z "$LATEST_TAG" ]; then
+                echo "No tags found, using version from pubspec.yaml"
+                CURRENT_VERSION=$(grep '^version:' pubspec.yaml | sed 's/version: //' | tr -d ' ')
+                VERSION_NUMBER=$(echo $CURRENT_VERSION | cut -d'+' -f1)
+                VERSION="v${VERSION_NUMBER}-test"
+              else
+                # Strip 'v' prefix and add '-test' suffix
+                VERSION_NUMBER="${LATEST_TAG#v}"
+                VERSION="v${VERSION_NUMBER}-test"
+              fi
+            else
+              # Use current version from pubspec.yaml
+              CURRENT_VERSION=$(grep '^version:' pubspec.yaml | sed 's/version: //' | tr -d ' ')
+              VERSION_NUMBER=$(echo $CURRENT_VERSION | cut -d'+' -f1)
+              VERSION="v${VERSION_NUMBER}-test"
+            fi
+          else
+            # Tag push event
+            VERSION="${GITHUB_REF#refs/tags/}"
+            VERSION_NUMBER="${VERSION#v}"
+            VERSION_NUMBER="${VERSION_NUMBER%-test}"
+          fi
+          
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "version_number=$VERSION_NUMBER" >> $GITHUB_OUTPUT
+          echo "📦 Version: $VERSION"
+          echo "📊 Version Number: $VERSION_NUMBER"
+
+      - name: Update pubspec.yaml with version
+        run: |
+          VERSION_NUMBER="${{ steps.version.outputs.version_number }}"
+          CURRENT_VERSION=$(grep '^version:' pubspec.yaml | sed 's/version: //' | tr -d ' ')
+          BUILD_NUMBER=$(echo $CURRENT_VERSION | cut -d'+' -f2)
+          
+          # If no build number, default to 1
+          if [ -z "$BUILD_NUMBER" ]; then
+            BUILD_NUMBER=1
+          fi
+          
+          NEW_VERSION="${VERSION_NUMBER}+${BUILD_NUMBER}"
+          
+          echo "📝 Updating pubspec.yaml version to: $NEW_VERSION"
+          sed -i "s/^version: .*/version: $NEW_VERSION/" pubspec.yaml
+          
+          # Verify the change
+          echo "✅ Updated version:"
+          grep '^version:' pubspec.yaml
+
+      - name: Get dependencies
+        run: flutter pub get
+
+      - name: Run tests
+        run: flutter test || echo "Tests failed, continuing anyway..."
+
+      - name: Unlock Premium Features
+        run: |
+          echo "🔓 Unlocking premium features for test build..."
+          sed -i 's/static const bool _debugUnlockPremium = kDebugMode;/static const bool _debugUnlockPremium = true;/' lib/src/core/subscription/subscription_manager.dart
+          
+          echo "✅ Premium features unlocked for testing"
+          echo "Modified line:"
+          grep "_debugUnlockPremium" lib/src/core/subscription/subscription_manager.dart
+
+      - name: Build APK
+        run: |
+          echo "🔨 Building test APK with version ${{ steps.version.outputs.version }}..."
+          flutter build apk --release
+          
+          # Rename to test APK with version
+          VERSION="${{ steps.version.outputs.version }}"
+          mv build/app/outputs/flutter-apk/app-release.apk \
+             build/app/outputs/flutter-apk/app-test-${VERSION}.apk
+          
+          # Also create a generic name for easy reference
+          cp build/app/outputs/flutter-apk/app-test-${VERSION}.apk \
+             build/app/outputs/flutter-apk/app-test-release.apk
+          
+          echo "✅ Test APK built successfully"
+          ls -lh build/app/outputs/flutter-apk/
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-apk-${{ steps.version.outputs.version }}
+          path: |
+            build/app/outputs/flutter-apk/app-test-${{ steps.version.outputs.version }}.apk
+            build/app/outputs/flutter-apk/app-test-release.apk
+          retention-days: 30
+
+      - name: Create GitHub Release
+        if: |
+          (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')) ||
+          (github.event_name == 'workflow_dispatch' && inputs.create_release == true)
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ steps.version.outputs.version }}
+          name: Test Release ${{ steps.version.outputs.version }}
+          body: |
+            ## 🧪 Test Release
+                        
+            ### Installation:
+            1. Download `app-test-release.apk`
+            2. Enable "Install from unknown sources" on your Android device
+            3. Install the APK
+            
+            ### Note:
+            This build bypasses subscription checks and is intended for internal use, testing, or special distributions.
+            
+            ---
+            
+            **Build Info:**
+            - Version: ${{ steps.version.outputs.version_number }}
+            - Flutter: 3.35.1
+            - Build Date: ${{ github.event.head_commit.timestamp }}
+            - Commit: ${{ github.sha }}
+          files: |
+            build/app/outputs/flutter-apk/app-test-${{ steps.version.outputs.version }}.apk
+            build/app/outputs/flutter-apk/app-test-release.apk
+          draft: false
+          prerelease: false
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build Summary
+        run: |
+          echo "## 🎉 Test APK Build Complete" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Version:** ${{ steps.version.outputs.version }}" >> $GITHUB_STEP_SUMMARY
+          echo "**APK Size:** $(du -h build/app/outputs/flutter-apk/app-test-release.apk | cut -f1)" >> $GITHUB_STEP_SUMMARY
