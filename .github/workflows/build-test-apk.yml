@@ -1,4 +1,4 @@
-name: Build Premium APK
+name: Build Test APK
 
 on:
   # Manual trigger - uses latest tag automatically
@@ -121,10 +121,6 @@ jobs:
           mv build/app/outputs/flutter-apk/app-release.apk \
              build/app/outputs/flutter-apk/app-test-${VERSION}.apk
           
-          # Also create a generic name for easy reference
-          cp build/app/outputs/flutter-apk/app-test-${VERSION}.apk \
-             build/app/outputs/flutter-apk/app-test-release.apk
-          
           echo "✅ Test APK built successfully"
           ls -lh build/app/outputs/flutter-apk/
 
@@ -132,9 +128,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: test-apk-${{ steps.version.outputs.version }}
-          path: |
-            build/app/outputs/flutter-apk/app-test-${{ steps.version.outputs.version }}.apk
-            build/app/outputs/flutter-apk/app-test-release.apk
+          path: build/app/outputs/flutter-apk/app-test-${{ steps.version.outputs.version }}.apk
           retention-days: 30
 
       - name: Create GitHub Release
@@ -163,9 +157,7 @@ jobs:
             - Flutter: 3.35.1
             - Build Date: ${{ github.event.head_commit.timestamp }}
             - Commit: ${{ github.sha }}
-          files: |
-            build/app/outputs/flutter-apk/app-test-${{ steps.version.outputs.version }}.apk
-            build/app/outputs/flutter-apk/app-test-release.apk
+          files: build/app/outputs/flutter-apk/app-test-${{ steps.version.outputs.version }}.apk
           draft: false
           prerelease: false
           generate_release_notes: true
@@ -177,4 +169,4 @@ jobs:
           echo "## 🎉 Test APK Build Complete" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "**Version:** ${{ steps.version.outputs.version }}" >> $GITHUB_STEP_SUMMARY
-          echo "**APK Size:** $(du -h build/app/outputs/flutter-apk/app-test-release.apk | cut -f1)" >> $GITHUB_STEP_SUMMARY
+          echo "**APK Size:** $(du -h build/app/outputs/flutter-apk/app-test-${{ steps.version.outputs.version }}.apk | cut -f1)" >> $GITHUB_STEP_SUMMARY
