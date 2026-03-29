@@ -196,7 +196,7 @@ Future<void> _scheduleNotificationForTask(
   final fileName = path.basename(filePath);
   final notificationId =
       _generateNotificationId(filePath, description, scheduledTime);
-  final notificationText = '$fileName: $description';
+  final notificationText = '$description';
 
   try {
     // Use existing NotificationManager for consistency
