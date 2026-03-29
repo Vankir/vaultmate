@@ -171,14 +171,6 @@ Future<void> _scheduleNotificationForTask(
   }
 
   final scheduledTime = task.scheduled!;
-  final now = DateTime.now();
-
-  // Skip past dates
-  if (scheduledTime.isBefore(now)) {
-    logger.d('Scheduled time is in the past, skipping: ${task.description}');
-    return;
-  }
-
   final description = task.description ?? 'Task';
 
   // Check if already scheduled to prevent duplicates
@@ -194,16 +186,13 @@ Future<void> _scheduleNotificationForTask(
   }
 
   final fileName = path.basename(filePath);
-  final notificationId =
-      _generateNotificationId(filePath, description, scheduledTime);
-  final notificationText = '$fileName: $description';
+  final notificationText = '$description';
 
   try {
-    // Use existing NotificationManager for consistency
     await notificationManager.createScheduledNotification(
       scheduledDate: scheduledTime,
       text: notificationText,
-      notificationId: notificationId,
+      filePath: filePath,
     );
 
     await stateManager.markNotificationScheduled(
@@ -213,13 +202,6 @@ Future<void> _scheduleNotificationForTask(
     logger.e('Failed to schedule notification for: $description',
         error: e, stackTrace: stackTrace);
   }
-}
-
-int _generateNotificationId(
-    String filePath, String description, DateTime scheduled) {
-  final combined = '$filePath|$description|${scheduled.toIso8601String()}';
-  // Ensure ID fits in 32-bit signed integer range
-  return combined.hashCode.abs() % 2147483647;
 }
 
 bool _isToday(DateTime date) {

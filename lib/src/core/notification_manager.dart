@@ -1,5 +1,4 @@
 import 'dart:io';
-import 'dart:math';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
@@ -259,10 +258,25 @@ class NotificationManager {
     );
   }
 
+  static int generateNotificationId({
+    required String text,
+    required DateTime scheduledDate,
+    String? filePath,
+  }) {
+    final components = [
+      if (filePath != null) filePath,
+      text,
+      scheduledDate.toIso8601String(),
+    ];
+    final combined = components.join('|');
+    return combined.hashCode.abs() % 2147483647;
+  }
+
   Future<void> createScheduledNotification({
     required DateTime scheduledDate,
     required String text,
     int notificationId = 0,
+    String? filePath,
   }) async {
     // Check if the scheduled time is in the past
     if (scheduledDate.isBefore(DateTime.now())) {
@@ -275,10 +289,11 @@ class NotificationManager {
     if (permissionGranted) {
       var id = notificationId;
       if (notificationId == 0) {
-        // Generate a unique ID within the 32-bit integer range
-        final random = Random();
-        id = (scheduledDate.millisecondsSinceEpoch + random.nextInt(1000)) %
-            (1 << 31);
+        id = generateNotificationId(
+          text: text,
+          scheduledDate: scheduledDate,
+          filePath: filePath,
+        );
       }
       Logger().i("Schedule notification with ID: $id at $scheduledDate");
       // Schedule the notification
