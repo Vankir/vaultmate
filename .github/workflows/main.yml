@@ -36,8 +36,8 @@ jobs:
 
   build_android:
     name: "Build Android release"
-    # Only build on main or version tags like v1.2.3
-    if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')
+    # Only build on main or version tags like v1.2.3, or when manually triggered
+    if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
 
     steps:
