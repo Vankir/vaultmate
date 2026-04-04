@@ -84,6 +84,7 @@
         </receiver>
         <service
             android:name="id.flutter.flutter_background_service.BackgroundService"
+            android:icon="@drawable/ic_notification"
             android:exported="false"
             android:foregroundServiceType="dataSync"
             tools:replace="android:exported" />

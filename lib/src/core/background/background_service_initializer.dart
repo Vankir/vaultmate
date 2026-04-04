@@ -1,8 +1,8 @@
 import 'dart:io';
 import 'package:flutter_background_service/flutter_background_service.dart';
-import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:logger/logger.dart';
 import 'package:obsi/src/core/background/vault_monitor_service.dart';
+import 'package:obsi/src/core/notification_manager.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class BackgroundServiceInitializer {
@@ -53,21 +53,7 @@ class BackgroundServiceInitializer {
   }
 
   Future<void> _createNotificationChannel() async {
-    final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
-        FlutterLocalNotificationsPlugin();
-
-    const AndroidNotificationChannel channel = AndroidNotificationChannel(
-      'vault_monitor_service',
-      'Vault Monitor Service',
-      description: 'Background service monitoring vault for task changes',
-      importance: Importance.low,
-      showBadge: false,
-    );
-
-    await flutterLocalNotificationsPlugin
-        .resolvePlatformSpecificImplementation<
-            AndroidFlutterLocalNotificationsPlugin>()
-        ?.createNotificationChannel(channel);
+    await NotificationManager.getInstance().createBackgroundServiceChannel();
   }
 
   Future<void> startService(String vaultDirectory) async {
