@@ -318,6 +318,28 @@ class NotificationManager {
     await _notificationPlugin.cancel(id);
   }
 
+  /// Creates a notification channel for the background service
+  Future<void> createBackgroundServiceChannel() async {
+    if (!Platform.isAndroid) {
+      return;
+    }
+
+    const AndroidNotificationChannel channel = AndroidNotificationChannel(
+      'vault_monitor_service',
+      'Vault Monitor Service',
+      description: 'Background service monitoring vault for task changes',
+      importance: Importance.min,
+      showBadge: false,
+    );
+
+    await _notificationPlugin
+        .resolvePlatformSpecificImplementation<
+            AndroidFlutterLocalNotificationsPlugin>()
+        ?.createNotificationChannel(channel);
+
+    Logger().i("Background service notification channel created");
+  }
+
   /// Schedules a daily recurring notification at the specified time
   ///
   /// [time] - The time of day when the notification should be triggered

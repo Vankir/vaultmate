@@ -1,7 +1,6 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
-import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:home_widget/home_widget.dart';
 import 'package:logger/logger.dart';
 import 'package:obsi/src/core/background/background_service_initializer.dart';
@@ -30,7 +29,7 @@ void main() async {
   await notificationManager.initialize();
 
   if (Platform.isAndroid) {
-    await _createBackgroundServiceNotificationChannel();
+    await notificationManager.createBackgroundServiceChannel();
   }
 
   // Initialize subscription manager
@@ -67,22 +66,4 @@ void main() async {
     settingsController: settingsController,
     taskManager: taskManager,
   ));
-}
-
-Future<void> _createBackgroundServiceNotificationChannel() async {
-  final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
-      FlutterLocalNotificationsPlugin();
-
-  const AndroidNotificationChannel channel = AndroidNotificationChannel(
-    'vault_monitor_service',
-    'Vault Monitor Service',
-    description: 'Background service monitoring vault for task changes',
-    importance: Importance.low,
-    showBadge: false,
-  );
-
-  await flutterLocalNotificationsPlugin
-      .resolvePlatformSpecificImplementation<
-          AndroidFlutterLocalNotificationsPlugin>()
-      ?.createNotificationChannel(channel);
 }

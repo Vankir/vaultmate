@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:logger/logger.dart';
+import 'package:obsi/src/core/background/background_service_initializer.dart';
 import 'package:obsi/src/core/notification_manager.dart';
 import 'package:obsi/src/core/storage/ios_tasks_file_storage.dart';
 import 'package:obsi/src/core/storage/storage_interfaces.dart';
@@ -591,6 +592,60 @@ class SettingsController with ChangeNotifier {
     _subscriptionExpiry = expiry;
     notifyListeners();
     await _settingsService.updateSubscriptionExpiry(expiry);
+  }
+
+  static Future<void> handleBackgroundMonitoringChange(
+    BuildContext context,
+    bool enabled,
+  ) async {
+    if (!Platform.isAndroid) return;
+
+    final controller = getInstance();
+    final backgroundService = BackgroundServiceInitializer();
+
+    if (enabled) {
+      if (controller.vaultDirectory != null &&
+          controller.vaultDirectory!.isNotEmpty) {
+        await backgroundService.initialize();
+        await backgroundService.startService(controller.vaultDirectory!);
+
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Background monitoring enabled'),
+              duration: Duration(seconds: 2),
+            ),
+          );
+        }
+      } else {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Please configure vault directory first'),
+              duration: Duration(seconds: 2),
+            ),
+          );
+        }
+        await controller.updateBackgroundMonitoringEnabled(false);
+      }
+    } else {
+      await backgroundService.stopService();
+
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Background monitoring disabled'),
+            duration: Duration(seconds: 2),
+          ),
+        );
+      }
+    }
+  }
+
+  static Future<void> updateBackgroundMonitoringEnabledStatic(
+      bool value) async {
+    final controller = getInstance();
+    await controller.updateBackgroundMonitoringEnabled(value);
   }
 
   bool get hasActiveSubscription {
