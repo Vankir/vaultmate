@@ -58,12 +58,12 @@ class _OnboardingPageState extends State<OnboardingPage> {
               child: IntroductionScreen(
                 pages: [
                   PageViewModel(
-                    title: "VaultMate - Task Manager for Obsidian vault!",
+                    title: "Never Forget a Task",
                     bodyWidget: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Text(
-                            "Your Obsidian tasks and notes at your fingertips.\n\nAdd the widgets to your home screen, then open VaultMate to refresh your tasks.",
+                            "Add time to your tasks in Obsidian and get notifications.\n\nBackground monitoring detects changes in vault and updates reminders instantly (switch on in settings).",
                             style: TextStyle(fontSize: 17),
                             textAlign: TextAlign.center),
                         _buildCheckbox()
@@ -86,7 +86,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
                         child: ClipRRect(
                           borderRadius: BorderRadius.circular(16),
                           child: Image.asset(
-                            'assets/images/onboarding_widget.png',
+                            'assets/images/onboarding_notif.png',
                             width: 280,
                             height: 280,
                             fit: BoxFit.contain,
@@ -96,9 +96,9 @@ class _OnboardingPageState extends State<OnboardingPage> {
                     ),
                   ),
                   PageViewModel(
-                    title: "Never Forget a Task",
+                    title: "VaultMate - Task Manager for Obsidian vault!",
                     bodyWidget: Text(
-                        "Schedule reminders for your tasks and get notifications at the right time.\n\nStay on top of your daily goals with smart notifications.",
+                        "Your Obsidian tasks and notes at your fingertips.\n\nAdd the widgets to your home screen, then open VaultMate to refresh your tasks.",
                         style: TextStyle(fontSize: 17),
                         textAlign: TextAlign.center),
                     image: Padding(
@@ -118,7 +118,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
                         child: ClipRRect(
                           borderRadius: BorderRadius.circular(16),
                           child: Image.asset(
-                            'assets/images/onboarding_notif.png',
+                            'assets/images/onboarding_widget.png',
                             width: 280,
                             height: 280,
                             fit: BoxFit.contain,
@@ -160,8 +160,12 @@ class _OnboardingPageState extends State<OnboardingPage> {
                     ),
                   ),
                 ],
-                onDone: () => widget.onDone(_dontShowAgain),
-                onSkip: () => widget.onDone(_dontShowAgain),
+                onDone: () async {
+                  widget.onDone(_dontShowAgain);
+                },
+                onSkip: () async {
+                  widget.onDone(_dontShowAgain);
+                },
                 showSkipButton: true,
                 skip: const Text("Skip"),
                 next: const Icon(Icons.arrow_forward),
