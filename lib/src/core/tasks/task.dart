@@ -109,8 +109,8 @@ class Task implements Comparable<Task> {
 
       // Remove hashtags from description
       _description = _description!.replaceAll(tagRegex, ' ').trim();
-      // Clean up multiple spaces that might result from tag removal
-      _description = _description!.replaceAll(RegExp(r'\s+'), ' ').trim();
+      // Clean up multiple spaces that might result from tag removal, preserving newlines
+      _description = _description!.replaceAll(RegExp(r'[^\S\n]+'), ' ').trim();
       _tags.addAll(tags);
     }
   }
