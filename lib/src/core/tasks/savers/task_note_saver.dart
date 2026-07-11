@@ -59,7 +59,7 @@ tags:
     }
   }
 
-  /// Formats scheduled date as YYYY-MM-DD or YYYY-MM-DDNHH:MM:SS
+  /// Formats scheduled date as YYYY-MM-DD or YYYY-MM-DDTHH:MM:SS
   String _formatScheduledDate(DateTime? date, bool includeTime) {
     if (date == null) {
       return '';
@@ -69,7 +69,7 @@ tags:
       // Format as YYYY-MM-DDNHH:MM:SS
       final dateStr = DateFormat('yyyy-MM-dd').format(date);
       final timeStr = DateFormat('HH:mm:ss').format(date);
-      return '${dateStr}N$timeStr';
+      return '${dateStr}T$timeStr';
     } else {
       // Format as YYYY-MM-DD
       return DateFormat('yyyy-MM-dd').format(date);
