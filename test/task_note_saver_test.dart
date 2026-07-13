@@ -226,7 +226,7 @@ void main() {
 
         final result = saver.toTaskNoteString(task);
 
-        expect(result, contains('scheduled: 2025-11-03T19:00:00'));
+        expect(result, contains('scheduled: 2025-11-03N19:00:00'));
       });
 
       test('should format scheduled date with different time values', () {
@@ -241,7 +241,7 @@ void main() {
 
         final result = saver.toTaskNoteString(task);
 
-        expect(result, contains('scheduled: 2024-12-25T08:30:45'));
+        expect(result, contains('scheduled: 2024-12-25N08:30:45'));
       });
 
       test('should format scheduled date with midnight time', () {
@@ -256,7 +256,7 @@ void main() {
 
         final result = saver.toTaskNoteString(task);
 
-        expect(result, contains('scheduled: 2025-01-01T00:00:00'));
+        expect(result, contains('scheduled: 2025-01-01N00:00:00'));
       });
 
       test('should format scheduled date with end of day time', () {
@@ -271,7 +271,7 @@ void main() {
 
         final result = saver.toTaskNoteString(task);
 
-        expect(result, contains('scheduled: 2025-06-15T23:59:59'));
+        expect(result, contains('scheduled: 2025-06-15N23:59:59'));
       });
 
       test('should handle null scheduled date', () {
@@ -336,7 +336,7 @@ void main() {
         final savedContent = saver.toTaskNoteString(task);
 
         // Verify the saved format includes time
-        expect(savedContent, contains('scheduled: 2025-11-03T19:30:45'));
+        expect(savedContent, contains('scheduled: 2025-11-03N19:30:45'));
         expect(savedContent, contains('---'));
         expect(savedContent, contains('Task with time'));
       });
