@@ -351,7 +351,9 @@ class TaskParser extends MarkdownTaskMarkers {
       serializedTask += " (@$time)";
     }
 
-    serializedTask += ' ${getPriorityMarker(task.priority)}';
+    if (task.priority != TaskPriority.normal) {
+      serializedTask += ' ${getPriorityMarker(task.priority)}';
+    }
 
     serializedTask += _saveDate(
         MarkdownTaskMarkers.createdDateMarker, dateTemplate, task.created);
