@@ -36,7 +36,7 @@ void main() {
       expect(
           serializedTask,
           equals(
-              "- [ ] Test (@$timeString)⏫ ➕ $dateString ❌ $dateString 📅 $dateString ⏳ $dateString 🔁 every day"));
+              "- [ ] Test (@$timeString) ⏫ ➕ $dateString ❌ $dateString 📅 $dateString ⏳ $dateString 🔁 every day"));
 
       var builtTask = TaskParser().build(serializedTask);
       var newSerializedTask = TaskParser().toTaskString(builtTask);
@@ -148,6 +148,32 @@ void main() {
       expect(serialized, contains('[priority:: highest]'));
       expect(serialized, isNot(contains('(due::')));
       expect(serialized, isNot(contains('(priority::')));
+    });
+
+    test("TaskParser: priority emoji has space after tags (#30)", () {
+      final task = Task("Buy milk",
+          status: TaskStatus.todo,
+          priority: TaskPriority.high);
+      task.tags = ["shopping", "urgent"];
+
+      final serialized = TaskParser().toTaskString(task);
+
+      expect(serialized, contains("#shopping ⏫"));
+      expect(serialized, contains("#urgent ⏫"));
+      expect(serialized, isNot(contains("#shopping⏫")));
+      expect(serialized, isNot(contains("#urgent⏫")));
+    });
+
+    test("TaskParser: priority emoji has space without tags (#30)", () {
+      var created = DateTime.now();
+      var dateString = DateFormat("yyyy-MM-dd").format(created);
+      var task = Task("Test",
+          created: created,
+          status: TaskStatus.todo,
+          priority: TaskPriority.high);
+      var serialized = TaskParser().toTaskString(task);
+
+      expect(serialized, contains("Test ⏫"));
     });
 
     test('change task status in file', () async {
