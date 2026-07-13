@@ -158,9 +158,9 @@ void main() {
 
       final serialized = TaskParser().toTaskString(task);
 
-      expect(serialized, contains("#shopping ⏫"));
-      expect(serialized, contains("#urgent ⏫"));
-      expect(serialized, isNot(contains("#shopping⏫")));
+      // Priority emoji comes after ALL tags with a space
+      expect(serialized, contains("#shopping #urgent ⏫"));
+      expect(serialized, isNot(contains("⏫#")));
       expect(serialized, isNot(contains("#urgent⏫")));
     });
 
