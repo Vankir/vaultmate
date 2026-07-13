@@ -7,11 +7,10 @@ on:
   workflow_dispatch:
 
 jobs:
-  build-and-sign-android:
+  build-android:
     runs-on: ubuntu-latest
 
     env:
-      # GitHub automatically sets CI=true, which our Gradle config uses to skip release signing
       CI: true
 
     steps:
@@ -38,41 +37,8 @@ jobs:
       - name: Build unsigned Android App Bundle
         run: flutter build appbundle --release
 
-      - name: Prepare keystore file
-        # ANDROID_KEYSTORE_BASE64 should be a base64-encoded keystore stored as a GitHub secret
-        run: |
-          echo "$ANDROID_KEYSTORE_BASE64" | base64 --decode > keystore
-        env:
-          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
-
-      - name: Sign AAB with jarsigner (single signing step)
-        run: |
-          ls -R
-          INPUT_AAB="build/app/outputs/bundle/release/app-release.aab"
-          OUTPUT_AAB="build/app/outputs/bundle/release/app-release-signed.aab"
-
-          echo "Signing bundle..."
-          echo "  Input : $INPUT_AAB"
-          echo "  Output: $OUTPUT_AAB"
-
-          jarsigner -verbose -sigalg SHA256withRSA -digestalg SHA-256 \
-            -keystore keystore \
-            -storepass "$ANDROID_KEYSTORE_PASSWORD" \
-            -keypass "$ANDROID_KEY_PASSWORD" \
-            -signedjar "$OUTPUT_AAB" \
-            "$INPUT_AAB" \
-            "$ANDROID_KEY_ALIAS"
-
-          echo
-          echo "Verifying signed bundle..."
-          jarsigner -verify -verbose -certs "$OUTPUT_AAB"
-        env:
-          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
-          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
-          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
-
-      - name: Upload signed AAB artifact
+      - name: Upload unsigned AAB artifact
         uses: actions/upload-artifact@v4
         with:
-          name: android-bundle-signed
-          path: build/app/outputs/bundle/release/app-release-signed.aab
+          name: android-bundle
+          path: build/app/outputs/bundle/release/app-release.aab
