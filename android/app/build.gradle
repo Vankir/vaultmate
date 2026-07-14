@@ -1,6 +1,7 @@
 plugins {
     id "com.android.application"
     id "org.jetbrains.kotlin.android"
+    id "org.jetbrains.kotlin.plugin.compose"
     id "dev.flutter.flutter-gradle-plugin"
 }
 
@@ -32,7 +33,7 @@ if (keystorePropertiesFile.exists()) {
 
 android {
     namespace "com.scanworks.obsi"
-    compileSdk 37
+    compileSdk flutter.compileSdkVersion
     ndkVersion '27.0.12077973'
     
     compileOptions {
