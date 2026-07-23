@@ -13,6 +13,23 @@ subprojects {
     project.evaluationDependsOn(':app')
 }
 
+// home_widget pins glance-appwidget/work-runtime-ktx to floating "1.+"/"2.+" ranges,
+// which resolve to pre-release androidx versions requiring a JVM 11 toolchain.
+// Force the last stable releases across every subproject (including home_widget's
+// own compilation classpath, which app-level resolutionStrategy does not reach).
+subprojects {
+    configurations.all {
+        resolutionStrategy {
+            force 'androidx.glance:glance-appwidget:1.1.1'
+            force 'androidx.glance:glance:1.1.1'
+            force 'androidx.glance:glance-appwidget-proto:1.1.1'
+            force 'androidx.glance:glance-appwidget-external-protobuf:1.1.1'
+            force 'androidx.work:work-runtime-ktx:2.11.2'
+            force 'androidx.work:work-runtime:2.11.2'
+        }
+    }
+}
+
 tasks.register("clean", Delete) {
     delete rootProject.buildDir
 }
