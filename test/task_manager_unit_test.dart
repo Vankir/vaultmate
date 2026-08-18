@@ -463,6 +463,99 @@ some text could be here
     });
   });
 
+  group('task manager swipe actions', () {
+    test('scheduleForTomorrow sets scheduled date to tomorrow and persists',
+        () async {
+      var storage = InMemoryTasksFileStorage();
+      await storage.getFile('/test.md').writeAsString('''**Header**
+
+- [ ] a task to postpone
+''');
+      var manager = TaskManager(storage);
+      await manager.loadTasks(p.dirname('/test.md'));
+
+      await manager.scheduleForTomorrow(manager.tasks[0]);
+
+      var tomorrow = DateTime.now().add(const Duration(days: 1));
+      expect(
+          TaskManager.sameDate(manager.tasks[0].scheduled, tomorrow), isTrue);
+
+      await manager.loadTasks(p.dirname('/test.md'));
+      expect(
+          TaskManager.sameDate(manager.tasks[0].scheduled, tomorrow), isTrue);
+    });
+
+    test('deleteTask removes only the targeted task and leaves siblings',
+        () async {
+      var storage = InMemoryTasksFileStorage();
+      await storage.getFile('/test.md').writeAsString('''**Header**
+
+- [ ] first task
+- [ ] second task to delete
+- [ ] third task
+''');
+      var manager = TaskManager(storage);
+      await manager.loadTasks(p.dirname('/test.md'));
+      expect(manager.tasks.length, equals(3));
+
+      var taskToDelete =
+          manager.tasks.firstWhere((t) => t.description == 'second task to delete');
+      await manager.deleteTask(taskToDelete);
+
+      expect(manager.tasks.length, equals(2));
+      expect(manager.tasks.any((t) => t.description == 'second task to delete'),
+          isFalse);
+
+      await manager.loadTasks(p.dirname('/test.md'));
+      expect(manager.tasks.length, equals(2));
+      expect(manager.tasks[0].description, equals('first task'));
+      expect(manager.tasks[1].description, equals('third task'));
+
+      var content = await storage.getFile('/test.md').readAsString();
+      expect(content.contains('second task to delete'), isFalse);
+      expect(content, contains('first task'));
+      expect(content, contains('third task'));
+    });
+
+    test('deleteTask removes an indented task without leaving stray whitespace',
+        () async {
+      var storage = InMemoryTasksFileStorage();
+      await storage.getFile('/test.md').writeAsString(
+          '- [ ] parent task\n  - [ ] indented child task\n- [ ] next task\n');
+      var manager = TaskManager(storage);
+      await manager.loadTasks(p.dirname('/test.md'));
+
+      var child =
+          manager.tasks.firstWhere((t) => t.description == 'indented child task');
+      await manager.deleteTask(child);
+
+      var content = await storage.getFile('/test.md').readAsString();
+      expect(content, equals('- [ ] parent task\n- [ ] next task\n'));
+    });
+
+    test(
+        'deleteTask on a recurring task removes only the current occurrence and does not create a next one',
+        () async {
+      var storage = InMemoryTasksFileStorage();
+      var manager = TaskManager(storage);
+
+      var task = Task("recurring task to delete",
+          status: TaskStatus.todo,
+          created: DateTime(2024, 04, 05),
+          scheduled: DateTime(2024, 04, 06),
+          recurranceRule: "every day");
+      await manager.saveTask(task, filePath: 'test.md');
+      await manager.loadTasks(p.dirname('test.md'));
+      expect(manager.tasks.length, equals(1));
+
+      await manager.deleteTask(manager.tasks[0]);
+
+      expect(manager.tasks.length, equals(0));
+      await manager.loadTasks(p.dirname('test.md'));
+      expect(manager.tasks.length, equals(0));
+    });
+  });
+
   group('calculateNextOccurrence', () {
     test('every day', () {
       final result = RecurrentTask.calculateNextOccurrence(

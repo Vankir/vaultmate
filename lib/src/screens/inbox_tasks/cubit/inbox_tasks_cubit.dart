@@ -227,10 +227,14 @@ class InboxTasksCubit extends Cubit<InboxTasksState> {
     }
   }
 
+  // Only removable from today if it's not due today (when includeDueTasksInToday is enabled)
+  bool isBlockedFromLeavingToday(Task task) {
+    return _taskManager.includeDueTasksInToday &&
+        TaskManager.sameDate(task.due, DateTime.now());
+  }
+
   void removeFromTodayPressed(Task task) {
-    // Only remove from today if it's not due today (when includeDueTasksInToday is enabled)
-    if (_taskManager.includeDueTasksInToday &&
-        TaskManager.sameDate(task.due, DateTime.now())) {
+    if (isBlockedFromLeavingToday(task)) {
       // Don't remove tasks that are due today when includeDueTasksInToday is enabled
       Logger().d('Task not removed from today because it is due today');
       emit(InboxTasksMessage(
@@ -244,6 +248,14 @@ class InboxTasksCubit extends Cubit<InboxTasksState> {
 
   void assignForTodayPressed(Task task) {
     _taskManager.scheduleForToday(task);
+  }
+
+  void postponeToTomorrowPressed(Task task) {
+    _taskManager.scheduleForTomorrow(task);
+  }
+
+  Future<void> deleteTaskPressed(Task task) async {
+    await _taskManager.deleteTask(task);
   }
 
   Future<void> _scheduleNotifications(List<Task> tasks) async {
