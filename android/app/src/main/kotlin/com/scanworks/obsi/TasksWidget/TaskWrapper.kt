@@ -1,4 +1,5 @@
 package com.scanworks.obsi
+import org.json.JSONArray
 import org.json.JSONObject
 
 data class TaskWrapper(
@@ -13,7 +14,8 @@ data class TaskWrapper(
     val scheduled: String? = null,
     val recurrenceRule: String? = null,
     val filePath: String? = null,
-    val fileOffset: String? = null
+    val fileOffset: String? = null,
+    val tags: List<String> = emptyList()
 ) {
     fun toJsonObject(): JSONObject {
         return JSONObject().apply {
@@ -29,6 +31,7 @@ data class TaskWrapper(
             put("recurrenceRule", recurrenceRule)
             put("filePath", filePath)
             put("fileOffset", fileOffset)
+            put("tags", JSONArray(tags))
         }
     }
 
@@ -86,9 +89,20 @@ data class TaskWrapper(
 
             android.util.Log.d(TAG, "Updated line: '$newLine'")
 
+            // If this completes a recurring task, insert a new task line for the next occurrence,
+            // mirroring TaskManager._manageRecurrentTask on the Dart side.
+            val recurringLine = if (done) buildNextOccurrenceLine() else null
+            if (recurringLine != null) {
+                android.util.Log.d(TAG, "Next occurrence line: '$recurringLine'")
+            }
+
             // Replace the line in the content
             val newContent = buildString {
                 append(content.substring(0, lineStart))
+                if (recurringLine != null) {
+                    append(recurringLine)
+                    append("\n")
+                }
                 append(newLine)
                 append(content.substring(lineEndFinal))
             }
@@ -100,8 +114,45 @@ data class TaskWrapper(
             return false
         }
     }
-  
+
+    /**
+     * If this task is recurring and scheduled, builds the markdown line for its next
+     * occurrence (mirroring TaskManager._manageRecurrentTask / RecurrentTask.calculateNextOccurrence
+     * on the Dart side). Returns null if the task is not recurring, has no scheduled date,
+     * or the recurrence rule can't be parsed.
+     */
+    private fun buildNextOccurrenceLine(): String? {
+        val rule = recurrenceRule
+        if (rule.isNullOrBlank() || scheduled.isNullOrBlank()) {
+            return null
+        }
+        return try {
+            val lastDate = java.time.LocalDate.parse(scheduled.substring(0, 10))
+            val nextDate = RecurrenceCalculator.calculateNextOccurrence(lastDate, rule)
+            val today = java.time.LocalDate.now().toString()
+
+            val tagsSuffix = if (tags.isNotEmpty()) tags.joinToString("") { " #$it" } else ""
+            val prioritySuffix = priorityMarker(priority)?.let { " $it" } ?: ""
+
+            "- [ ] $description$tagsSuffix$prioritySuffix ➕ $today ⏳ $nextDate 🔁 $rule"
+        } catch (e: Exception) {
+            android.util.Log.w("TaskWrapper", "Could not compute next occurrence for rule '$rule'", e)
+            null
+        }
+    }
+
     companion object {
+        private fun priorityMarker(priority: String): String? {
+            return when (priority.lowercase()) {
+                "lowest" -> "⏬"
+                "low" -> "🔽"
+                "medium" -> "🔼"
+                "high" -> "⏫"
+                "highest" -> "🔺"
+                else -> null
+            }
+        }
+
     private fun updateLineWithStatus(line: String, done: Boolean, statusRegex: Regex): String {
         return if (done) {
             // Add done date in yyyy-MM-dd format with prefix ✅ at the end
@@ -115,6 +166,12 @@ data class TaskWrapper(
         }
     }
         fun fromJson(obj: JSONObject): TaskWrapper {
+            val tagsArray = obj.optJSONArray("tags")
+            val tags = if (tagsArray != null) {
+                List(tagsArray.length()) { i -> tagsArray.optString(i) }
+            } else {
+                emptyList()
+            }
             return TaskWrapper(
                 description = obj.optString("description", ""),
                 status = obj.optString("status", "todo"),
@@ -127,7 +184,8 @@ data class TaskWrapper(
                 scheduled = obj.optString("scheduled", null),
                 recurrenceRule = obj.optString("recurrenceRule", null),
                 filePath = obj.optString("filePath", null),
-                fileOffset = obj.optString("fileOffset", null)
+                fileOffset = obj.optString("fileOffset", null),
+                tags = tags
             )
         }
     }
