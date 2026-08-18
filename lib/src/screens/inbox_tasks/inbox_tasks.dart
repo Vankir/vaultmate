@@ -101,6 +101,14 @@ class InboxTasks extends StatelessWidget with WidgetsBindingObserver {
   Widget _showListView(
       BuildContext context, List<Task> tasks, String highlightedText) {
     final items = _createViewItems(context, tasks, highlightedText);
+    // Only the flat list view renders bare TaskCards directly; calendar and
+    // grouped views wrap tasks inside their own Card layout, so they are
+    // left untouched here.
+    final swipableItems = items
+        .map((item) => item is TaskCard
+            ? _wrapTaskCardWithSwipe(context, item)
+            : item)
+        .toList();
     // Add extra space after the last card to avoid FAB overlap
     return RefreshIndicator(
       onRefresh: () async {
@@ -113,10 +121,103 @@ class InboxTasks extends StatelessWidget with WidgetsBindingObserver {
         controller: _scrollController,
         children: [
           _buildTagFilterLine(context),
-          ...items,
+          ...swipableItems,
           const SizedBox(height: 80), // Adjust height as needed for FAB
         ],
       ),
+    );
+  }
+
+  Widget _wrapTaskCardWithSwipe(BuildContext context, TaskCard card) {
+    final task = card.task;
+    // The Plus/Minus button is replaced by swipe on this (flat list) view;
+    // rebuild without it here rather than in _createTaskCard, so calendar
+    // and grouped views (which still render via _createTaskCard directly,
+    // without swipe support) keep their button.
+    final cardWithoutRightButton = TaskCard(
+      task,
+      hightlightedText: card.hightlightedText,
+      taskDonePressed: card.taskDonePressed,
+      editTaskPressed: card.editTaskPressed,
+      startWorkflowPressed: card.startWorkflowPressed,
+    );
+    return Dismissible(
+      key: ValueKey(task.taskSource?.id ?? task.hashCode),
+      direction: DismissDirection.horizontal,
+      background: _buildSwipeBackground(
+        alignment: Alignment.centerLeft,
+        icon: _inboxTaskCubit.today ? Icons.inbox : Icons.delete,
+        color: _inboxTaskCubit.today ? Colors.blueGrey : Colors.red,
+      ),
+      secondaryBackground: _buildSwipeBackground(
+        alignment: Alignment.centerRight,
+        icon: _inboxTaskCubit.today ? Icons.event : Icons.today,
+        color: _inboxTaskCubit.today ? Colors.orange : Colors.green,
+      ),
+      confirmDismiss: (direction) async {
+        if (_inboxTaskCubit.today) {
+          if (direction == DismissDirection.startToEnd) {
+            // Swipe right on Today: back to Inbox, unless blocked.
+            if (_inboxTaskCubit.isBlockedFromLeavingToday(task)) {
+              _inboxTaskCubit.removeFromTodayPressed(task);
+              return false;
+            }
+          }
+          return true;
+        } else {
+          if (direction == DismissDirection.startToEnd) {
+            // Swipe right on Inbox: ask for delete confirmation.
+            final confirmed = await showDialog<bool>(
+              context: context,
+              builder: (dialogContext) => AlertDialog(
+                title: const Text('Delete task?'),
+                content: Text(task.description ?? 'This task'),
+                actions: [
+                  TextButton(
+                    onPressed: () => Navigator.pop(dialogContext, false),
+                    child: const Text('Cancel'),
+                  ),
+                  TextButton(
+                    onPressed: () => Navigator.pop(dialogContext, true),
+                    child: const Text('Delete'),
+                  ),
+                ],
+              ),
+            );
+            return confirmed ?? false;
+          }
+          return true;
+        }
+      },
+      onDismissed: (direction) {
+        if (_inboxTaskCubit.today) {
+          if (direction == DismissDirection.endToStart) {
+            _inboxTaskCubit.postponeToTomorrowPressed(task);
+          } else {
+            _inboxTaskCubit.removeFromTodayPressed(task);
+          }
+        } else {
+          if (direction == DismissDirection.endToStart) {
+            _inboxTaskCubit.assignForTodayPressed(task);
+          } else {
+            _inboxTaskCubit.deleteTaskPressed(task);
+          }
+        }
+      },
+      child: cardWithoutRightButton,
+    );
+  }
+
+  Widget _buildSwipeBackground(
+      {required Alignment alignment,
+      required IconData icon,
+      required Color color}) {
+    return Container(
+      margin: const EdgeInsets.fromLTRB(2.0, 1.0, 1.0, 1.0),
+      color: color,
+      alignment: alignment,
+      padding: const EdgeInsets.symmetric(horizontal: 20.0),
+      child: Icon(icon, color: Colors.white),
     );
   }
 

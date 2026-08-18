@@ -342,6 +342,53 @@ class TaskManager with ChangeNotifier {
     }
   }
 
+  Future scheduleForTomorrow(Task task) async {
+    task.scheduled = DateTime.now().add(const Duration(days: 1));
+    if (task.taskSource != null) {
+      await saveTask(task);
+    }
+  }
+
+  Future deleteTask(Task task) async {
+    var source = task.taskSource;
+    if (source == null) {
+      return;
+    }
+
+    var file = storage.getFile(source.fileName);
+    var content = await file.readAsString();
+
+    // Remove the whole line (including any leading indentation before the
+    // task marker and its trailing newline) so deletion never leaves a
+    // stray blank/indented line behind for sibling content in the file.
+    var lineStart =
+        content.lastIndexOf('\n', source.offset > 0 ? source.offset - 1 : 0) +
+            1;
+    var lineEnd = source.offset + source.length;
+    if (lineEnd < content.length && content[lineEnd] == '\n') {
+      lineEnd += 1;
+    }
+
+    var newContent =
+        content.substring(0, lineStart) + content.substring(lineEnd);
+    await file.writeAsString(newContent);
+
+    var updatedTasks = Parser.parseTasks(source.fileName, newContent,
+        fileNumber: source.fileNumber, taskFilter: _taskFilter);
+
+    var indexOfFirstTaskFromFile =
+        _tasks.indexWhere((val) => val.taskSource!.fileName == source.fileName);
+    if (indexOfFirstTaskFromFile == -1) {
+      indexOfFirstTaskFromFile = 0;
+    } else {
+      _tasks.removeWhere((val) => val.taskSource!.fileName == source.fileName);
+    }
+
+    _addFilteredTasks(_tasks, updatedTasks, todoOnly, forDateOnly,
+        position: indexOfFirstTaskFromFile);
+    notifyListeners();
+  }
+
   Future saveTask(Task task,
       {String? filePath,
       String? saveMarker,
