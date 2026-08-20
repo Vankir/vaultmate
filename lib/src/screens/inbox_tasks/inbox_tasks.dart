@@ -102,45 +102,53 @@ class InboxTasks extends StatelessWidget with WidgetsBindingObserver {
       BuildContext context, List<Task> tasks, String highlightedText) {
     final items = _createViewItems(context, tasks, highlightedText);
     // Only the flat list view renders bare TaskCards directly; calendar and
-    // grouped views wrap tasks inside their own Card layout, so they are
-    // left untouched here.
-    final swipableItems = items
-        .map((item) => item is TaskCard
-            ? _wrapTaskCardWithSwipe(context, item)
-            : item)
-        .toList();
+    // grouped views wrap their own tasks with swipe internally (see
+    // _createFileViews/_createCalendarViews), so they pass through untouched
+    // here.
+    var hintApplied = false;
+    final swipableItems = items.map((item) {
+      if (item is! TaskCard) return item;
+      Widget swiped = _wrapTaskCardWithSwipe(context, item);
+      if (!hintApplied && !_inboxTaskCubit.swipeHintShown) {
+        hintApplied = true;
+        swiped = _wrapWithSwipeHint(swiped);
+      }
+      return swiped;
+    }).toList();
     // Add extra space after the last card to avoid FAB overlap
-    return RefreshIndicator(
-      onRefresh: () async {
-        _inboxTaskCubit.refreshTasks();
-        // Wait a brief moment for the refresh to start
-        await Future.delayed(const Duration(milliseconds: 300));
+    return Listener(
+      // Dismisses this screen's onboarding hint (if one is active) on any
+      // tap anywhere in the task list area, not just the hinted row itself
+      // (see _SwipeHintRow, FR-016). Translucent so it never intercepts
+      // taps, scrolls, or swipes meant for the list below it - _SwipeHintRow
+      // notices via its own poll of _inboxTaskCubit.swipeHintShown.
+      behavior: HitTestBehavior.translucent,
+      onPointerDown: (_) {
+        if (!_inboxTaskCubit.swipeHintShown) {
+          _inboxTaskCubit.markSwipeHintShown();
+        }
       },
-      child: ListView(
-        physics: const AlwaysScrollableScrollPhysics(),
-        controller: _scrollController,
-        children: [
-          _buildTagFilterLine(context),
-          ...swipableItems,
-          const SizedBox(height: 80), // Adjust height as needed for FAB
-        ],
+      child: RefreshIndicator(
+        onRefresh: () async {
+          _inboxTaskCubit.refreshTasks();
+          // Wait a brief moment for the refresh to start
+          await Future.delayed(const Duration(milliseconds: 300));
+        },
+        child: ListView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          controller: _scrollController,
+          children: [
+            _buildTagFilterLine(context),
+            ...swipableItems,
+            const SizedBox(height: 80), // Adjust height as needed for FAB
+          ],
+        ),
       ),
     );
   }
 
   Widget _wrapTaskCardWithSwipe(BuildContext context, TaskCard card) {
     final task = card.task;
-    // The Plus/Minus button is replaced by swipe on this (flat list) view;
-    // rebuild without it here rather than in _createTaskCard, so calendar
-    // and grouped views (which still render via _createTaskCard directly,
-    // without swipe support) keep their button.
-    final cardWithoutRightButton = TaskCard(
-      task,
-      hightlightedText: card.hightlightedText,
-      taskDonePressed: card.taskDonePressed,
-      editTaskPressed: card.editTaskPressed,
-      startWorkflowPressed: card.startWorkflowPressed,
-    );
     return Dismissible(
       key: ValueKey(task.taskSource?.id ?? task.hashCode),
       direction: DismissDirection.horizontal,
@@ -148,12 +156,19 @@ class InboxTasks extends StatelessWidget with WidgetsBindingObserver {
         alignment: Alignment.centerLeft,
         icon: _inboxTaskCubit.today ? Icons.inbox : Icons.delete,
         color: _inboxTaskCubit.today ? Colors.blueGrey : Colors.red,
+        caption: _inboxTaskCubit.today ? 'Inbox' : 'Delete',
       ),
       secondaryBackground: _buildSwipeBackground(
         alignment: Alignment.centerRight,
         icon: _inboxTaskCubit.today ? Icons.event : Icons.today,
         color: _inboxTaskCubit.today ? Colors.orange : Colors.green,
+        caption: _inboxTaskCubit.today ? 'Tomorrow' : 'Today',
       ),
+      onUpdate: (details) {
+        if (details.progress > 0 && !_inboxTaskCubit.swipeHintShown) {
+          _inboxTaskCubit.markSwipeHintShown();
+        }
+      },
       confirmDismiss: (direction) async {
         if (_inboxTaskCubit.today) {
           if (direction == DismissDirection.startToEnd) {
@@ -204,20 +219,40 @@ class InboxTasks extends StatelessWidget with WidgetsBindingObserver {
           }
         }
       },
-      child: cardWithoutRightButton,
+      child: card,
     );
   }
 
   Widget _buildSwipeBackground(
       {required Alignment alignment,
       required IconData icon,
-      required Color color}) {
+      required Color color,
+      required String caption}) {
     return Container(
       margin: const EdgeInsets.fromLTRB(2.0, 1.0, 1.0, 1.0),
       color: color,
       alignment: alignment,
       padding: const EdgeInsets.symmetric(horizontal: 20.0),
-      child: Icon(icon, color: Colors.white),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, color: Colors.white),
+          Text(caption, style: const TextStyle(color: Colors.white, fontSize: 12)),
+        ],
+      ),
+    );
+  }
+
+  // Wraps exactly one swipe-enabled row per screen (the first one rendered,
+  // whichever view mode is active) with a one-time onboarding nudge, when
+  // that screen's hint hasn't played yet. See _SwipeHintRow below.
+  Widget _wrapWithSwipeHint(Widget child) {
+    return _SwipeHintRow(
+      cubit: _inboxTaskCubit,
+      message: _inboxTaskCubit.today
+          ? 'Swipe left to move to tomorrow, swipe right to move to Inbox'
+          : 'Swipe left to schedule for today, swipe right to delete',
+      child: child,
     );
   }
 
@@ -523,7 +558,12 @@ class InboxTasks extends StatelessWidget with WidgetsBindingObserver {
   List<Card> _createCalendarViews(
       List<Task> tasks, BuildContext context, String highlightedText) {
     List<Card> calendarViews = [];
-    List<TaskCard> calendarTasks = [];
+    // calendarTaskCards mirrors calendarTaskWidgets and is kept purely to
+    // read `.task` for the date-grouping key; calendarTaskWidgets (the
+    // swipe-wrapped rows) is what actually gets rendered.
+    List<TaskCard> calendarTaskCards = [];
+    List<Widget> calendarTaskWidgets = [];
+    var hintApplied = false;
 
     //sort tasks by scheduled date
     tasks.sort((a, b) {
@@ -544,30 +584,41 @@ class InboxTasks extends StatelessWidget with WidgetsBindingObserver {
         break; // Skip the rest of the tasks
       }
 
-      if ((calendarTasks.isNotEmpty &&
+      final card = _createTaskCard(context, task, highlightedText);
+      Widget rowWidget = _wrapTaskCardWithSwipe(context, card);
+      if (!hintApplied && !_inboxTaskCubit.swipeHintShown) {
+        hintApplied = true;
+        rowWidget = _wrapWithSwipeHint(rowWidget);
+      }
+
+      if ((calendarTaskCards.isNotEmpty &&
               TaskManager.sameDate(
-                  calendarTasks[0].task.scheduled, task.scheduled) &&
+                  calendarTaskCards[0].task.scheduled, task.scheduled) &&
               task.scheduled != null) ||
-          calendarTasks.isNotEmpty &&
+          calendarTaskCards.isNotEmpty &&
               task.scheduled == null &&
-              calendarTasks[0].task.scheduled == null) {
-        calendarTasks.add(_createTaskCard(context, task, highlightedText));
+              calendarTaskCards[0].task.scheduled == null) {
+        calendarTaskCards.add(card);
+        calendarTaskWidgets.add(rowWidget);
       } else {
-        if (calendarTasks.isNotEmpty) {
+        if (calendarTaskCards.isNotEmpty) {
           calendarViews.add(CalendarView(
-            List<TaskCard>.from(calendarTasks),
+            List<Widget>.from(calendarTaskWidgets),
+            scheduledDate: calendarTaskCards[0].task.scheduled,
             highlightedText: highlightedText,
           ));
         }
-        calendarTasks = [_createTaskCard(context, task, highlightedText)];
+        calendarTaskCards = [card];
+        calendarTaskWidgets = [rowWidget];
       }
       i++;
     }
 
     // Add the last group only if we didn't hit the premium limit
-    if (calendarTasks.isNotEmpty && !hitPremiumLimit) {
+    if (calendarTaskCards.isNotEmpty && !hitPremiumLimit) {
       calendarViews.add(CalendarView(
-        calendarTasks,
+        calendarTaskWidgets,
+        scheduledDate: calendarTaskCards[0].task.scheduled,
         highlightedText: highlightedText,
       ));
     }
@@ -662,15 +713,33 @@ class InboxTasks extends StatelessWidget with WidgetsBindingObserver {
   List<FileView> _createFileViews(
       List<Task> tasks, BuildContext context, String highlightedText) {
     List<FileView> fileViews = [];
-    List<TaskCard> fileTasks = [];
+    // firstCardInGroup is kept purely to read `.task` for the file-grouping
+    // key; fileTaskWidgets (the swipe-wrapped rows) is what actually gets
+    // rendered. fileTaskWidgets is mutated in place after being handed to
+    // FileView so later same-file rows still show up in the already
+    // constructed view (build() only runs once the whole list is final).
+    TaskCard? firstCardInGroup;
+    List<Widget> fileTaskWidgets = [];
+    var hintApplied = false;
+
     for (var task in tasks) {
-      if (fileTasks.isNotEmpty &&
-          fileTasks[0].task.taskSource!.fileName == task.taskSource!.fileName) {
-        fileTasks.add(_createTaskCard(context, task, highlightedText));
+      final card = _createTaskCard(context, task, highlightedText);
+      Widget rowWidget = _wrapTaskCardWithSwipe(context, card);
+      if (!hintApplied && !_inboxTaskCubit.swipeHintShown) {
+        hintApplied = true;
+        rowWidget = _wrapWithSwipeHint(rowWidget);
+      }
+
+      if (firstCardInGroup != null &&
+          firstCardInGroup.task.taskSource!.fileName ==
+              task.taskSource!.fileName) {
+        fileTaskWidgets.add(rowWidget);
       } else {
-        fileTasks = [_createTaskCard(context, task, highlightedText)];
+        fileTaskWidgets = [rowWidget];
+        firstCardInGroup = card;
         fileViews.add(FileView(
-          fileTasks,
+          fileTaskWidgets,
+          fileName: card.task.taskSource?.fileName,
           highlightedText: highlightedText,
           vaultName: SettingsController.getInstance().vaultName!,
         ));
@@ -698,12 +767,6 @@ class InboxTasks extends StatelessWidget with WidgetsBindingObserver {
                 child: const TaskEditor()),
           ));
     },
-        rightButtonPressed: _inboxTaskCubit.today
-            ? () => _inboxTaskCubit.removeFromTodayPressed(task)
-            : () => _inboxTaskCubit.assignForTodayPressed(
-                  task,
-                ),
-        rightButtonIcon: _inboxTaskCubit.today ? Icons.remove : Icons.add,
         startWorkflowPressed: task.tags.contains("obsi_ai")
             ? () => _startWorkflowPressed(context, task)
             : null);
@@ -721,5 +784,120 @@ class InboxTasks extends StatelessWidget with WidgetsBindingObserver {
             .switchToAIWithMessage(task.description ?? '');
       }
     }
+  }
+}
+
+// One-time onboarding hint (FR-013-FR-017): nudges its child left/right to
+// preview the swipe backgrounds and shows a short explanatory SnackBar, the
+// first time a screen (Today or Inbox) loads with at least one task. Purely
+// decorative — it never triggers a real swipe-commit callback. Repeats
+// indefinitely until dismissed — never on its own — by whichever comes
+// first: the user touching this row directly, tapping anywhere else on the
+// screen (see the Listener in _showListView), or a real swipe happening on
+// any row on this screen (tracked via InboxTasksCubit.swipeHintShown,
+// polled on each animation tick).
+class _SwipeHintRow extends StatefulWidget {
+  final Widget child;
+  final InboxTasksCubit cubit;
+  final String message;
+
+  const _SwipeHintRow({
+    required this.child,
+    required this.cubit,
+    required this.message,
+  });
+
+  @override
+  State<_SwipeHintRow> createState() => _SwipeHintRowState();
+}
+
+class _SwipeHintRowState extends State<_SwipeHintRow>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller;
+  late final Animation<double> _offset;
+  bool _finished = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1600),
+    );
+    _offset = TweenSequence<double>([
+      TweenSequenceItem(tween: Tween(begin: 0.0, end: -24.0), weight: 1),
+      TweenSequenceItem(tween: Tween(begin: -24.0, end: 24.0), weight: 2),
+      TweenSequenceItem(tween: Tween(begin: 24.0, end: 0.0), weight: 1),
+    ]).animate(CurvedAnimation(parent: _controller, curve: Curves.easeInOut));
+
+    _controller.addListener(() {
+      // A real tap or swipe may have happened anywhere on this screen while
+      // this animation was running (see _finish, the row's own Listener
+      // below, and the screen-wide tap detector in _showListView) — stop
+      // immediately if so.
+      if (!_finished && widget.cubit.swipeHintShown) {
+        _finish();
+      }
+    });
+
+    WidgetsBinding.instance.addPostFrameCallback((_) => _start());
+  }
+
+  Future<void> _start() async {
+    await Future.delayed(const Duration(milliseconds: 500));
+    if (!mounted || _finished || widget.cubit.swipeHintShown) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(widget.message),
+        // Effectively indefinite: the message must stay up for as long as
+        // the nudge keeps repeating (FR-017), not disappear on its own
+        // timer. It is only ever taken down by _finish()'s explicit
+        // hideCurrentSnackBar() call, once the hint is actually dismissed.
+        duration: const Duration(days: 1),
+      ),
+    );
+    // Keep nudging — and keep the message up — until the hint is dismissed
+    // by a tap anywhere on the screen or a real swipe (FR-016). It must
+    // never stop, or mark itself shown, on its own (FR-013, FR-014).
+    while (mounted && !_finished) {
+      await _controller.forward(from: 0.0);
+      if (!mounted || _finished) return;
+      await Future.delayed(const Duration(milliseconds: 900));
+    }
+  }
+
+  void _finish() {
+    if (_finished) return;
+    _finished = true;
+    if (_controller.isAnimating) {
+      _controller.stop();
+    }
+    if (mounted) {
+      ScaffoldMessenger.of(context).hideCurrentSnackBar();
+    }
+    widget.cubit.markSwipeHintShown();
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Listener(
+      onPointerDown: (_) => _finish(),
+      child: AnimatedBuilder(
+        animation: _offset,
+        builder: (context, child) {
+          return Transform.translate(
+            offset: Offset(_offset.value, 0),
+            child: child,
+          );
+        },
+        child: widget.child,
+      ),
+    );
   }
 }

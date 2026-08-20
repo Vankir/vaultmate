@@ -28,6 +28,8 @@ class SettingsService {
   static const String _chatGptKeyKey = "chatgptkey";
   static const String _showOverdueOnlyKey = "show_overdue_only";
   static const String _includeDueTasksInTodayKey = "include_due_tasks_in_today";
+  static const String _swipeHintShownTodayKey = "swipe_hint_shown_today";
+  static const String _swipeHintShownInboxKey = "swipe_hint_shown_inbox";
   static const String _onboardingCompleteKey = "onboarding_complete";
   static const String _subscriptionStatusKey = "subscription_status";
   static const String _subscriptionExpiryKey = "subscription_expiry";
@@ -241,6 +243,26 @@ class SettingsService {
   Future<bool> includeDueTasksInToday() async {
     var sharedPreferences = await SharedPreferences.getInstance();
     return sharedPreferences.getBool(_includeDueTasksInTodayKey) ?? true;
+  }
+
+  Future<bool> swipeHintShownToday() async {
+    var sharedPreferences = await SharedPreferences.getInstance();
+    return sharedPreferences.getBool(_swipeHintShownTodayKey) ?? false;
+  }
+
+  Future<void> updateSwipeHintShownToday(bool value) async {
+    var sharedPreferences = await SharedPreferences.getInstance();
+    sharedPreferences.setBool(_swipeHintShownTodayKey, value);
+  }
+
+  Future<bool> swipeHintShownInbox() async {
+    var sharedPreferences = await SharedPreferences.getInstance();
+    return sharedPreferences.getBool(_swipeHintShownInboxKey) ?? false;
+  }
+
+  Future<void> updateSwipeHintShownInbox(bool value) async {
+    var sharedPreferences = await SharedPreferences.getInstance();
+    sharedPreferences.setBool(_swipeHintShownInboxKey, value);
   }
 
   Future<void> updateIncludeDueTasksInToday(bool value) async {

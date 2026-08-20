@@ -1,32 +1,26 @@
 import 'package:flutter/material.dart';
-import 'package:obsi/src/core/tasks/task.dart';
 import 'package:obsi/src/core/utils.dart';
-import 'package:obsi/src/widgets/task_card.dart';
 import 'package:path/path.dart' as p;
 import 'package:url_launcher/url_launcher.dart';
 
 class FileView extends Card {
-  final List<TaskCard> taskCards;
+  final List<Widget> taskCards;
   final String? highlightedText;
   final String vaultName;
+  final String? fileName;
 
   const FileView(
     this.taskCards, {
     super.key,
     this.highlightedText,
     required this.vaultName,
+    required this.fileName,
   });
 
   @override
   Widget build(BuildContext context) {
-    String? fileName;
-
-    if (taskCards.isNotEmpty) {
-      fileName = taskCards[0].task.taskSource?.fileName;
-      if (fileName != null) {
-        fileName = p.basenameWithoutExtension(fileName);
-      }
-    }
+    var displayFileName =
+        fileName != null ? p.basenameWithoutExtension(fileName!) : null;
 
     var defaultTextStyle =
         TextStyle(color: Theme.of(context).colorScheme.onSurface);
@@ -43,23 +37,26 @@ class FileView extends Card {
             Align(alignment: Alignment.centerLeft, child: Text('File: ')),
             GestureDetector(
               onTap: () async {
-                if (fileName == null || fileName.isEmpty) return;
+                if (displayFileName == null || displayFileName.isEmpty) {
+                  return;
+                }
                 final Uri obsidianUri = Uri.parse(
-                    'obsidian://open?vault=$vaultName&file=$fileName');
+                    'obsidian://open?vault=$vaultName&file=$displayFileName');
                 if (await canLaunchUrl(obsidianUri)) {
                   await launchUrl(obsidianUri);
                 } else {
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
-                        content: Text('Could not open $fileName in Obsidian')),
+                        content: Text(
+                            'Could not open $displayFileName in Obsidian')),
                   );
                 }
               },
               child: Align(
                 alignment: Alignment.centerLeft,
-                child: fileName != null &&
+                child: displayFileName != null &&
                         highlightedText != null &&
-                        fileName.toLowerCase().contains(highlightedText!)
+                        displayFileName.toLowerCase().contains(highlightedText!)
                     ? RichText(
                         text: TextSpan(
                           style: const TextStyle(
@@ -67,7 +64,7 @@ class FileView extends Card {
                             decoration: TextDecoration.underline,
                           ),
                           children: buildHighlightedTextSpans(
-                              fileName,
+                              displayFileName,
                               highlightedText!,
                               defaultTextStyle.copyWith(
                                 color: Colors.blue,
@@ -77,7 +74,7 @@ class FileView extends Card {
                         ),
                       )
                     : Text(
-                        fileName ?? "",
+                        displayFileName ?? "",
                         style: const TextStyle(
                           color: Colors.blue,
                           decoration: TextDecoration.underline,

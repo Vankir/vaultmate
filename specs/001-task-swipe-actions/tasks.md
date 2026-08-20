@@ -19,7 +19,7 @@ implementation and testing of each story.
 ## Format: `[ID] [P?] [Story] Description`
 
 - **[P]**: Can run in parallel (different files, no dependency on an incomplete task)
-- **[Story]**: Which user story this task belongs to (US1, US2, US3)
+- **[Story]**: Which user story this task belongs to (US1, US2, US3, US4)
 - File paths are exact and relative to the repository root
 
 ---
@@ -129,6 +129,78 @@ replaced by swipe gestures, and delete-with-confirmation is available.
 
 ---
 
+## Phase 7: Cross-View Swipe Parity & Captions (FR-011, FR-012) — Increment 2
+
+**Purpose**: `/speckit-analyze` found FR-011 (swipe must behave identically in list/grouped/calendar
+view modes) and FR-012 (every swipe icon needs a text caption) were added to `spec.md` after
+Increment 1 shipped, with zero task coverage — T002/T017 above explicitly scoped grouped/calendar
+views *out*. This phase closes that gap. It is cross-cutting (it makes User Stories 1–3's
+already-shipped swipe behaviors reach every view mode, and adds captions to all of them), so per
+the task-generation rules it carries no single `[Story]` label, the same as Setup/Foundational.
+
+**⚠️ Design correction found while generating this phase**: `research.md`'s original Increment 2
+decision assumed `FileView`/`CalendarView` only read `.task` off their `taskCards` list *before*
+construction. That's incorrect — both widgets' own `build()` methods read
+`taskCards[0].task.taskSource?.fileName` / `taskCards[0].task.scheduled` directly off their field
+at render time (`file_view.dart:25`, `calendar_view.dart:25`). Widening `taskCards` to
+`List<Widget>` alone would break both lines. `research.md` and `contracts/task_manager_contract.md`
+have been corrected accordingly; the tasks below reflect the corrected design (each widget gains a
+new explicit field instead of reading `.task` off a list element).
+
+- [X] T020 [P] In `lib/src/screens/inbox_tasks/file_view.dart`: add a new required `String? fileName` field to `FileView`; widen the `taskCards` field type from `List<TaskCard>` to `List<Widget>`; in `build()`, replace `fileName = taskCards[0].task.taskSource?.fileName; if (fileName != null) fileName = p.basenameWithoutExtension(fileName);` with simply using the new `fileName` field (basename computed by the caller instead)
+- [X] T021 [P] In `lib/src/screens/inbox_tasks/calendar_view.dart`: add a new required `DateTime? scheduledDate` field to `CalendarView`; widen the `taskCards` field type from `List<TaskCard>` to `List<Widget>`; in `build()`, replace `date = taskCards[0].task.scheduled;` with simply using the new `scheduledDate` field
+- [X] T022 In `_createFileViews` (`lib/src/screens/inbox_tasks/inbox_tasks.dart`): keep building/grouping with plain `TaskCard`s exactly as today (grouping key: `task.taskSource!.fileName`); when starting a new file group, compute `fileName` from that first plain `TaskCard` (same derivation T020 removed from `FileView.build()`); when constructing `FileView`, pass `fileName` and a list of `_wrapTaskCardWithSwipe(context, card)`-wrapped rows instead of the plain `TaskCard`s (depends on T020)
+- [X] T023 In `_createCalendarViews` (`lib/src/screens/inbox_tasks/inbox_tasks.dart`): keep building/grouping with plain `TaskCard`s exactly as today (grouping key: `task.scheduled` via `TaskManager.sameDate`); when starting a new date group, compute `scheduledDate` from that first plain `TaskCard`; when constructing `CalendarView`, pass `scheduledDate` and a list of `_wrapTaskCardWithSwipe(context, card)`-wrapped rows instead of the plain `TaskCard`s; leave `_createPremiumUpgradeCalendarView` untouched (it does not build a `CalendarView`) (depends on T021)
+- [X] T024 In `_buildSwipeBackground` (`lib/src/screens/inbox_tasks/inbox_tasks.dart`): add a `required String caption` parameter; render a `Column` (`Icon`, then `Text(caption, style: TextStyle(color: Colors.white))`) instead of a bare `Icon`; update both call sites inside `_wrapTaskCardWithSwipe` with the four captions from FR-012 — Today `background` (swipe-right) → "Inbox", Today `secondaryBackground` (swipe-left) → "Tomorrow", Inbox `background` (swipe-right) → "Delete", Inbox `secondaryBackground` (swipe-left) → "Today"
+- [X] T025 Reopen T017, with a correction found while doing it.
+  **Deviation from task premise**: `_createTaskCard`'s `rightButtonPressed`/`rightButtonIcon` wiring genuinely became dead code once T022/T023 routed grouped/calendar rendering through `_wrapTaskCardWithSwipe` too — removed from `_createTaskCard` and (initially) from `TaskCard` itself. But `flutter analyze` then surfaced a real regression: `lib/src/widgets/obsi_chat_bubble.dart` (the AI-assistant chat screen, unrelated to Inbox/Today) also constructs a `TaskCard` with `rightButtonPressed`/`rightButtonIcon` for its own "add this AI-suggested task" button — a third call site beyond the two (calendar/grouped) already known from Increment 1's T002/T017 investigation. Restored both fields (and the `trailing:` button render block) on `TaskCard` (`lib/src/widgets/task_card.dart`) so that call site keeps working; `_createTaskCard` in `inbox_tasks.dart` still doesn't set them (genuinely unused there now), and `_wrapTaskCardWithSwipe`'s old "rebuild a button-less copy" trick was simplified away to just use `card` directly, since `_createTaskCard`'s output never carries a button in the first place anymore. Verified via `flutter analyze` (0 errors, 115 issues total vs. the 116 pre-existing baseline — the 1-fewer is an incidental fix of an already-dead `task.dart` import in `file_view.dart`, unrelated to this task) and `flutter test` (216 passed, 3 pre-existing skips, 0 failed).
+
+**Checkpoint**: Swipe (with captions) works identically in list, grouped, and calendar view modes
+on both Today and Inbox screens; the Plus/Minus buttons are gone from every view mode, closing the
+SC-003 gap. User Stories 1–3 are otherwise unchanged.
+
+---
+
+## Phase 8: User Story 4 - Discover swipe via a one-time onboarding hint (Priority: P3) — Increment 3
+
+**Goal**: The first time the Today or Inbox screen loads with at least one task, one task row
+nudges on its own to reveal its swipe backgrounds, paired with a screen-specific message
+explaining what swipe left/right do — once per screen, ever.
+
+**Independent Test**: With the "hint shown" state reset (fresh install, or cleared local data),
+open the Today screen and confirm a task row nudges and a SnackBar appears within a few seconds
+without any tap; reopen the screen and confirm neither repeats. Repeat independently for Inbox.
+
+### Tests for User Story 4
+
+- [X] T026 [P] [US4] Add unit tests for `InboxTasksCubit.swipeHintShown`/`markSwipeHintShown` (reads/writes the today- vs. inbox-keyed flag correctly based on the cubit's own `today` field) in `test/src/screens/inbox_tasks/inbox_tasks_cubit_swipe_test.dart` — same file/pattern as the existing `postponeToTomorrowPressed`/`isBlockedFromLeavingToday` tests from Increment 1, avoiding the `loadTasks`/isolate hang under `testWidgets()` (see T009's note)
+  **Deviation from plan**: only exercises the `today: false` (Inbox) branch directly, matching this test file's established today:true avoidance (see the comment block at the top of the `group`) — constructing a `today: true` cubit risks the same unrelated notification/home-widget plugin-channel issue T004 found. Today/Inbox independence is instead verified by asserting `SettingsController.getInstance().swipeHintShownToday` stays `false` after marking the Inbox cubit's hint shown, which exercises the same two independent backing fields without needing a `today: true` cubit instance.
+
+### Implementation for User Story 4
+
+- [X] T027 [US4] Add `swipe_hint_shown_today` / `swipe_hint_shown_inbox` `SharedPreferences`-backed async getter/setter pair to `SettingsService` in `lib/src/screens/settings/settings_service.dart`, matching the existing `showOverdueOnly`/`updateShowOverdueOnly` shape (depends on T026)
+- [X] T028 [US4] Add cached `_swipeHintShownToday`/`_swipeHintShownInbox` fields to `SettingsController` in `lib/src/screens/settings/settings_controller.dart`, loaded during its existing init sequence.
+  **Deviation from plan**: implemented as two separate `bool get swipeHintShownToday`/`swipeHintShownInbox` getters and two separate `updateSwipeHintShownToday(bool)`/`updateSwipeHintShownInbox(bool)` setters, not one parameterized `swipeHintShown(bool today)` method — every existing per-screen-independent flag in this class (e.g. `showOverdueOnly`) uses plain unparameterized getters, and the test file's `MockSettingsController` pattern (`@override bool get showOverdueOnly => false;`) only works cleanly with that shape. Neither setter calls `notifyListeners()`, matching `updateShowOverdueOnly`'s no-notify pattern — `InboxTasksCubit` listens for `SettingsController` changes via `refreshTasks()` (a full task reload), which marking a hint flag should not trigger (depends on T027)
+- [X] T029 [US4] Add `bool get swipeHintShown` and `Future<void> markSwipeHintShown()` to `InboxTasksCubit` in `lib/src/screens/inbox_tasks/cubit/inbox_tasks_cubit.dart`, delegating to `SettingsController.getInstance()` keyed by the cubit's own `today` field — mirrors the existing `showOverdueOnly` getter (depends on T028)
+- [X] T030 [US4] Create a new private `_SwipeHintRow` `StatefulWidget` in `lib/src/screens/inbox_tasks/inbox_tasks.dart` that wraps a child widget (the already-swipe-wrapped row): on `initState`, if `!_inboxTaskCubit.swipeHintShown`, after a short settle delay drive an `AnimationController` that nudges the child via `Transform.translate` (small horizontal oscillation, a couple of cycles) — purely decorative, must not call any swipe-commit callback (depends on T029)
+- [X] T031 [US4] In `_SwipeHintRow`, when the nudge animation starts, also call `ScaffoldMessenger.of(context).showSnackBar(...)` with a multi-second `duration` and the screen-specific message — Today: "Swipe left to move to tomorrow, swipe right to move to Inbox"; Inbox: "Swipe left to schedule for today, swipe right to delete" (depends on T030)
+- [X] T032 [US4] In `_SwipeHintRow`, call `markSwipeHintShown()` exactly once — either when the nudge animation completes normally, or immediately if the wrapped `Dismissible` reports a real drag/dismiss starting first (per FR-016) — cancelling the animation and dismissing the `SnackBar` right away in the interrupted case so the real swipe proceeds unaffected.
+  **Deviation from plan**: "real drag starting" is detected two ways, not one: (1) a `Listener.onPointerDown` on `_SwipeHintRow` itself calls `_finish()` immediately if the user touches that exact row; (2) a new `onUpdate: (details) { if (details.progress > 0 && !swipeHintShown) markSwipeHintShown(); }` callback was added to the `Dismissible` in `_wrapTaskCardWithSwipe` (fires for every row, not just the hinted one), and `_SwipeHintRowState`'s `AnimationController` listener polls `widget.cubit.swipeHintShown` on every tick, stopping itself if it flips `true` from elsewhere. This covers FR-016's "swipes any task" (not just the hinted row) — a plain confirmDismiss-only hook would have only caught swipes on the hinted row itself (depends on T031)
+- [X] T033 [US4] Apply `_SwipeHintRow` to exactly the first rendered row (in `_showListView`, and — via Phase 7's shared `_wrapTaskCardWithSwipe` path — in grouped/calendar views too) whenever `!_inboxTaskCubit.swipeHintShown && tasks.isNotEmpty`; every other row, and every screen once its hint has played, renders exactly as before (depends on T032, T022, T023)
+
+**Checkpoint**: All four user stories are independently functional. A first-time user on either
+screen sees a one-time nudge + message teaching the swipe gesture; returning users never see it
+again; a manual swipe during the hint cancels it immediately.
+
+---
+
+## Phase 9: Final Polish & Cross-Cutting Concerns (Increments 2 + 3)
+
+- [X] T034 Run `flutter analyze` and the full `flutter test` suite at the repository root; fix any regressions (depends on T020–T033) — `flutter analyze`: 115 issues (vs. 116 pre-existing baseline; 0 errors; the 1-fewer is an incidental fix of an already-dead import, not a new fix-then-hide); `flutter test`: 216 passed, 3 skipped (pre-existing), 0 failed
+- [ ] T035 Execute `specs/001-task-swipe-actions/quickstart.md` Scenarios 7–9 (cross-view parity, captions, onboarding hint) manually on both an iOS and an Android device/simulator, alongside the still-open T019 (Scenarios 1–6) (depends on T034) — not runnable in this environment (no device/simulator); left for manual QA
+
+---
+
 ## Dependencies & Execution Order
 
 ### Phase Dependencies
@@ -142,11 +214,21 @@ replaced by swipe gestures, and delete-with-confirmation is available.
 - **User Story 3 (Phase 5)**: Depends on Foundational — no dependency on US1/US2 (same file/branch
   as US2 at a different swipe direction; same sequential-implementation note applies)
 - **Polish (Phase 6)**: Depends on all three user stories being complete
+- **Cross-View Parity & Captions (Phase 7)**: Depends on Phase 2's `_wrapTaskCardWithSwipe` and on
+  US1/US2/US3 (Phases 3–5) already being wired into it, since Phase 7 only widens *where* that
+  existing behavior renders — no dependency on Phase 6.
+- **User Story 4 (Phase 8)**: Depends on Foundational (Phase 2) for `_wrapTaskCardWithSwipe`/
+  `Dismissible`, and on Phase 7 (T022, T023) for the hint to reach grouped/calendar views too — but
+  is otherwise independent of US1/US2/US3's specific swipe outcomes (the hint only *reveals*
+  backgrounds, it never triggers a real action).
+- **Final Polish (Phase 9)**: Depends on Phase 7 and Phase 8 both being complete.
 
 ### Within Each User Story
 
 - Tests are written first and must fail before their corresponding implementation task
 - `TaskManager` method before `InboxTasksCubit` method before UI wiring before button removal
+- Phase 8 follows the same layering: `SettingsService` → `SettingsController` → `InboxTasksCubit` →
+  UI widget (T027 → T028 → T029 → T030–T033)
 
 ### Parallel Opportunities
 
@@ -159,6 +241,13 @@ replaced by swipe gestures, and delete-with-confirmation is available.
 - Because User Stories 1, 2, and 3 all edit `_createTaskCard` and `TaskCard` usage in the same two
   files, they are not realistically parallelizable across people — implement in priority order
   (US1 → US2 → US3) even though each is independently valuable and testable once done
+- T020 (`file_view.dart`) and T021 (`calendar_view.dart`) are different files with no shared
+  dependency — run in parallel
+- T022–T025 all edit `inbox_tasks.dart` (and, for T025, `task_card.dart`) — implement sequentially,
+  same reasoning as US1–US3 above
+- T026 (new `InboxTasksCubit` unit tests) has no file conflict with Phase 7 — could run in parallel
+  with Phase 7, but T033 (applying `_SwipeHintRow`) depends on T022/T023 from Phase 7, so Phase 8's
+  UI tasks (T030–T033) are practically sequenced after Phase 7 even though T026–T029 are not
 
 ---
 
@@ -179,6 +268,20 @@ replaced by swipe gestures, and delete-with-confirmation is available.
 3. Add User Story 2 → validate → Inbox scheduling done (Plus button gone)
 4. Add User Story 3 → validate → Inbox delete-with-confirmation done (all four gestures live)
 5. Polish → dead-code removal, full suite, manual iOS/Android parity pass
+6. *(Increment 2, shipped separately from the above)* Cross-View Parity & Captions (Phase 7) →
+   validate quickstart Scenarios 7–8 → swipe now works with captions in every view mode, Plus/Minus
+   fully gone
+7. *(Increment 3)* User Story 4 (Phase 8) → validate quickstart Scenario 9 → first-time users on
+   either screen get a one-time discoverability hint
+8. Final Polish (Phase 9) → full suite, manual iOS/Android parity pass for Scenarios 7–9
+
+### Increments 2 & 3 Delivery Note
+
+Unlike US1–US3 (independently valuable in isolation, deliverable one at a time), Phase 7 (cross-view
+parity) and Phase 8 (User Story 4) are not required to ship together, but Phase 8's UI tasks
+(T030–T033) depend on Phase 7's T022/T023 (see Dependencies above) — so in practice, ship Phase 7
+first, then Phase 8. Both extend a feature that was already merged to `main` (PR #51); treat this as
+a second PR/release cycle for the same feature directory, not a rewrite of the first.
 
 ## Notes
 
@@ -188,3 +291,36 @@ replaced by swipe gestures, and delete-with-confirmation is available.
 - FR-009 / SC-004 (iOS/Android parity) is verified in T019, not by a separate automated test — the
   implementation is pure Dart/Flutter with no platform-specific code path, so parity is structural,
   and T019 is the confirming manual check
+- FR-011/SC-005 (view-mode parity) and FR-012/SC-006 (captions) are Phase 7's purpose; SC-003
+  ("Plus/Minus no longer appear anywhere") is only fully satisfied once Phase 7's T025 lands —
+  before that, Increment 1 alone leaves it unmet in grouped/calendar views (see `/speckit-analyze`
+  finding I1)
+- FR-013–FR-017/SC-007 (onboarding hint) are Phase 8's purpose; like FR-009/SC-004, cross-platform
+  behavior for the hint itself is structural (pure Dart/Flutter, no platform code) and confirmed
+  manually in T035, not by a dedicated automated parity test
+
+---
+
+## Phase 10: Convergence
+
+**Purpose**: `/speckit-converge` found that `spec.md`'s User Story 4 / FR-013–FR-017 were amended
+(after Phase 8 shipped) to require the onboarding hint's nudge animation and message to repeat
+continuously until the user taps anywhere on the screen or swipes a task, instead of playing a
+single cycle. The `_SwipeHintRow` implementation from Phase 8 (T030–T032) still plays exactly one
+animation cycle and auto-marks the hint "shown" when that cycle ends, with no user interaction
+required, and only stops early on a swipe or a tap on the hinted row itself — not a tap anywhere
+else on the screen. This phase closes that gap. It carries no single `[Story]` label per the
+task-generation rules for cross-cutting fixes, same as Phase 7/9.
+
+- [X] T036 In `_SwipeHintRowState` (`lib/src/screens/inbox_tasks/inbox_tasks.dart:799-876`): replace the single `await _controller.forward(); _finish();` sequence in `_start()` with a repeating loop so the nudge keeps playing continuously instead of stopping after one cycle, per FR-013 (contradicts).
+  **Deviation from task premise**: implemented as `while (mounted && !_finished) { await _controller.forward(from: 0.0); if (!mounted || _finished) return; await Future.delayed(const Duration(milliseconds: 900)); }` — not `_controller.repeat()` (which loops the raw `AnimationController` value 0→1 with no way to insert a pause) and not a manual `forward()`/`reset()` pair (redundant: `forward(from: 0.0)` already resets before running). The 900ms pause between cycles gives a "nudge, pause, nudge" rhythm rather than continuous shaking, consistent with the spec's Assumptions ("small, partial, non-blocking animation").
+- [X] T037 In `_SwipeHintRowState`: stop calling `_finish()`/`markSwipeHintShown()` as a side effect of an animation cycle completing; `_finish()` is now only invoked from an actual dismissal trigger — the row's own `onPointerDown` handler, the existing `Dismissible.onUpdate`-driven `swipeHintShown` poll (via the `AnimationController` listener), and the new screen-wide tap detector from T038 — per FR-014 (contradicts). Achieved as a side effect of T036's loop rewrite: the loop never calls `_finish()` itself, so no code path change was needed beyond T036.
+- [X] T038 Add a screen-wide tap detector that dismisses the active hint from anywhere on the screen (not just the hinted row), per FR-016 (missing).
+  **Deviation from task premise**: implemented as a single `Listener(behavior: HitTestBehavior.translucent, onPointerDown: ...)` wrapping `_showListView`'s returned `RefreshIndicator` (`lib/src/screens/inbox_tasks/inbox_tasks.dart`), not a `GestureDetector`/per-view-root approach, and not routed through a callback on `_SwipeHintRow` — it directly calls `_inboxTaskCubit.markSwipeHintShown()` when not already shown, which `_SwipeHintRowState`'s existing `AnimationController` listener (polling `widget.cubit.swipeHintShown` each tick) already picks up and turns into a `_finish()` call within one frame. Since `_showListView` is the single render entry point for all three view modes (list/grouped/calendar — confirmed via `_createViewItems`'s dispatch on `_inboxTaskCubit.viewMode`), one wrapper covers all of them; no separate per-view-root wrapping was needed. `Listener`/translucent matches the pattern already used for the row's own tap detection, so scrolling/tapping/swiping underneath is unaffected (FR-015).
+- [X] T039 In `_SwipeHintRowState._start()` (`lib/src/screens/inbox_tasks/inbox_tasks.dart:832-837`): removed the `SnackBar`'s fixed `duration: const Duration(seconds: 4)`, replaced with `const Duration(days: 1)` (Flutter's `SnackBar` has no "indefinite" sentinel, so a very large duration is the standard stand-in) so the message does not auto-dismiss on its own timer while the animation is still repeating; it continues to be hidden via the existing `ScaffoldMessenger.of(context).hideCurrentSnackBar()` call in `_finish()`, per FR-017 (contradicts)
+- [X] T040 [P] Updated `specs/001-task-swipe-actions/quickstart.md` Scenario 9: rewrote steps to describe the repeating nudge/message (not disappearing on their own), added a tap-anywhere-dismisses step, and added a new step verifying that leaving the screen without interacting resumes the hint from the start on the next visit (per the new FR-014 edge case) — 5 steps became 7, matching the amended FR-013–FR-017
+- [X] T041 Run `flutter analyze` and the full `flutter test` suite at the repository root; fix any regressions (depends on T036–T039) — `flutter analyze`: 115 issues, identical to the Phase 9 baseline, 0 errors, nothing new in `inbox_tasks.dart` beyond pre-existing warnings; `flutter test`: 216 passed, 3 skipped (pre-existing), 0 failed
+
+**Checkpoint**: The onboarding hint repeats indefinitely until the user taps anywhere on the screen
+or swipes a task, matching the amended spec; a screen left untouched never marks its hint as shown
+and resumes repeating on the next visit.
