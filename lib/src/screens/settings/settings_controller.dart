@@ -257,6 +257,8 @@ class SettingsController with ChangeNotifier {
 
   bool _showOverdueOnly = false;
   bool _includeDueTasksInToday = true;
+  bool _swipeHintShownToday = false;
+  bool _swipeHintShownInbox = false;
   bool _onboardingComplete = false;
   String? _subscriptionStatus;
   DateTime? _subscriptionExpiry;
@@ -288,6 +290,8 @@ class SettingsController with ChangeNotifier {
   String? get filePathPattern => _filePathPattern;
   bool get showOverdueOnly => _showOverdueOnly;
   bool get includeDueTasksInToday => _includeDueTasksInToday;
+  bool get swipeHintShownToday => _swipeHintShownToday;
+  bool get swipeHintShownInbox => _swipeHintShownInbox;
   bool get onboardingComplete => _onboardingComplete;
   String? get subscriptionStatus => _subscriptionStatus;
   DateTime? get subscriptionExpiry => _subscriptionExpiry;
@@ -312,6 +316,8 @@ class SettingsController with ChangeNotifier {
     _chatGptKey = await _settingsService.chatGptKey();
     _showOverdueOnly = await _settingsService.showOverdueOnly();
     _includeDueTasksInToday = await _settingsService.includeDueTasksInToday();
+    _swipeHintShownToday = await _settingsService.swipeHintShownToday();
+    _swipeHintShownInbox = await _settingsService.swipeHintShownInbox();
     _onboardingComplete = await _settingsService.onboardingComplete();
     _subscriptionStatus = await _settingsService.subscriptionStatus();
     _subscriptionExpiry = await _settingsService.subscriptionExpiry();
@@ -510,6 +516,18 @@ class SettingsController with ChangeNotifier {
     _showOverdueOnly = value;
     Logger().d("updateShowOverdueOnly: $value");
     await _settingsService.updateShowOverdueOnly(value);
+  }
+
+  Future<void> updateSwipeHintShownToday(bool value) async {
+    if (_swipeHintShownToday == value) return;
+    _swipeHintShownToday = value;
+    await _settingsService.updateSwipeHintShownToday(value);
+  }
+
+  Future<void> updateSwipeHintShownInbox(bool value) async {
+    if (_swipeHintShownInbox == value) return;
+    _swipeHintShownInbox = value;
+    await _settingsService.updateSwipeHintShownInbox(value);
   }
 
   Future<void> updateIncludeDueTasksInToday(bool value) async {

@@ -77,6 +77,49 @@ verifying the task is unchanged.
 
 ---
 
+### User Story 4 - Discover swipe via a one-time onboarding hint (Priority: P3)
+
+The first time a user opens the Today screen or the Inbox screen, and at least one task is shown,
+one task row automatically nudges/shakes on its own so the swipe backgrounds (icon and caption)
+behind it become briefly visible, and a short message explains that tasks can be swiped left/right
+and what each direction does on that screen — without the user having to swipe or read a separate
+help page. This happens once per screen and never again after that.
+
+**Why this priority**: Swipe replaces controls (Plus/Minus) that were always visible, so a returning
+user has no visual cue that the gesture exists. This is a discoverability aid, not core
+functionality — User Stories 1-3 must work correctly whether or not a user ever sees the hint.
+
+**Independent Test**: On a fresh install (or with the "hint shown" state reset), open the Today
+screen and verify a task row nudges on its own within a few seconds of the list appearing, without
+any tap or swipe from the user. Close and reopen the screen and verify the nudge does not happen
+again. Repeat independently for the Inbox screen.
+
+**Acceptance Scenarios**:
+
+1. **Given** the Today screen has never shown the swipe hint before and at least one task is on the
+   list, **When** the screen finishes loading, **Then** one task row automatically animates to
+   partially reveal both of its swipe backgrounds (icon and caption) and then settles back, without
+   requiring the user to touch it.
+2. **Given** the Today or Inbox screen's hint is playing for the first time, **When** the nudge
+   animation runs, **Then** a short, screen-specific text message is also shown explaining what
+   swipe left and swipe right do on that screen (e.g., on Today: "Swipe left to move to tomorrow,
+   swipe right to move to Inbox"; on Inbox: "Swipe left to schedule for today, swipe right to
+   delete").
+3. **Given** the swipe hint has already played once on a screen, **When** the user opens that screen
+   again (including after restarting the app), **Then** neither the nudge animation nor the
+   explanatory message plays again on that screen.
+4. **Given** the Today screen's hint has already played, **When** the user opens the Inbox screen for
+   the first time, **Then** the Inbox hint (animation and message) still plays once, independently
+   of the Today screen's hint having already been shown.
+5. **Given** a screen has no tasks when it first loads, **When** the screen loads, **Then** no hint
+   animation or message plays (there is no row to animate); the hint MAY still play the next time
+   that screen loads with at least one task, if it has not played yet.
+6. **Given** the hint animation and/or message is showing, **When** the user swipes any task before
+   or during it, **Then** the animation stops and the message dismisses immediately, and the hint is
+   treated as already shown.
+
+---
+
 ### Edge Cases
 
 - Swiping right on a Today task that is blocked from leaving Today by the due-today rule (see
@@ -93,6 +136,17 @@ verifying the task is unchanged.
 - What happens when the user swipes another task while an earlier swipe's confirmation prompt (User
   Story 3) is still open? The confirmation prompt must be resolved (confirmed or cancelled) before
   another destructive swipe action can be started.
+- What happens when a task is displayed in the grouped (file-grouped) or calendar view instead of the
+  list view? The same swipe gesture on the same task produces the same outcome, with the same
+  icon-plus-caption indicator, as in the list view.
+- What happens if the user deletes/uninstalls-and-reinstalls the app, or clears its local data?
+  The "hint already shown" state is local to the app installation, so the onboarding hint (User
+  Story 4) is expected to play again after a reinstall or data clear, the same as any other
+  first-run behavior.
+- What happens if the task row selected for the onboarding hint is the one blocked from leaving
+  Today by the due-today rule? The hint still plays on it — it only reveals the swipe backgrounds
+  briefly, it does not perform a real swipe/dismiss, so the due-today guard is not relevant to the
+  hint itself.
 
 ## Requirements *(mandatory)*
 
@@ -122,6 +176,29 @@ verifying the task is unchanged.
   occurrence; the recurrence rule itself MUST NOT be modified or removed by a swipe action. Users
   MUST NOT be blocked from deleting the current occurrence of a recurring task via swipe, even
   though doing so stops the series from generating further occurrences (see Edge Cases).
+- **FR-011**: All swipe actions defined above (FR-001, FR-002, FR-004, FR-005) MUST be available and
+  MUST behave identically on the Today and Inbox screens regardless of the active view mode — list,
+  grouped (file-grouped), or calendar.
+- **FR-012**: Every swipe action's icon indicator MUST be shown together with a text caption
+  describing the destination or action it performs (for example, "Tomorrow" for the postpone swipe,
+  "Inbox" for the unschedule swipe, "Today" for the schedule-for-today swipe, and "Delete" for the
+  delete-confirmation swipe). An icon MUST NOT be shown without its caption.
+- **FR-013**: The Today screen and the Inbox screen MUST each, independently, automatically animate
+  one task row the first time that screen is opened with at least one task present, briefly and
+  partially revealing that row's swipe backgrounds (icon and caption) without requiring the user to
+  touch or swipe the row.
+- **FR-014**: The system MUST NOT play the onboarding hint (animation and message together, see
+  FR-013 and FR-017) on a screen more than once; once a screen's hint has played (or been skipped
+  per FR-016), that "shown" state MUST persist locally across app restarts for that screen.
+- **FR-015**: The onboarding hint MUST NOT block, delay, or intercept the user's ability to swipe,
+  tap, or scroll the task list while it plays.
+- **FR-016**: If the user manually swipes any task on a screen before or during that screen's
+  onboarding hint, the system MUST stop the automatic animation and dismiss the explanatory message
+  immediately, and MUST treat that screen's hint as already shown (see FR-014).
+- **FR-017**: Alongside the nudge animation, the onboarding hint MUST show a short text message
+  explaining what swipe left and swipe right do on that specific screen (distinct wording for Today
+  vs. Inbox, matching each screen's actual swipe actions and captions from FR-001, FR-002, FR-004,
+  FR-005, and FR-012).
 
 ### Key Entities
 
@@ -141,6 +218,14 @@ verifying the task is unchanged.
   the task list UI.
 - **SC-004**: The same swipe gesture on the same screen produces the same outcome on iOS and
   Android.
+- **SC-005**: The same swipe gesture on the same screen produces the same outcome regardless of
+  whether the screen is displayed in list, grouped, or calendar view.
+- **SC-006**: Every swipe icon a user can see is accompanied by a readable text caption; no swipe
+  indicator is icon-only.
+- **SC-007**: A user opening the Today or Inbox screen for the first time (with at least one task
+  present) sees an automatic hint — both the nudge animation and a screen-specific explanatory
+  message — within a few seconds of the screen loading, with no tap required; on every later visit
+  to that screen, neither the animation nor the message occurs again.
 
 ## Assumptions
 
@@ -156,3 +241,22 @@ verifying the task is unchanged.
   previously set scheduled date.
 - A task shown on the Today screen because it is due (rather than because it is scheduled for today)
   can still be swiped left to be scheduled for tomorrow.
+- "List", "grouped" (file-grouped), and "calendar" refer to the three existing view modes a user can
+  switch between on the Today and Inbox screens. Swipe support previously existed only in list view;
+  grouped and calendar views still showed the old Plus/Minus buttons. This feature extends swipe (and
+  removes Plus/Minus) in those views too, per FR-011.
+- The onboarding hint's "shown" state (FR-014) is stored locally on-device (e.g., alongside other
+  app settings), consistent with this app's local-first, no-analytics design — it is not synced or
+  tracked server-side, and naturally resets on reinstall or local-data clear (see Edge Cases).
+- "One task row" for the hint (FR-013) means exactly one visible row per screen, chosen by the
+  implementation (e.g., the first row); the spec does not require animating every row, only enough
+  to make the gesture discoverable without being intrusive.
+- The exact animation style (a small side-to-side nudge/shake, a brief partial slide-and-settle, or
+  similar) is an implementation detail; the requirement is that it makes the swipe backgrounds
+  (icon + caption) become briefly visible on both sides of the row without a real swipe/dismiss
+  being triggered.
+- The exact presentation of the explanatory message (FR-017) — e.g., a snackbar, a small banner
+  near the animated row, or similar transient UI — is an implementation detail; the requirement is
+  that it is a short, non-blocking, auto-dismissing text message, not a modal dialog the user must
+  tap through, and that it disappears on its own (or on manual swipe, per FR-016) without requiring
+  an explicit "got it" tap.

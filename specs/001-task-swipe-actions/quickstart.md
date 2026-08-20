@@ -57,9 +57,62 @@ on iOS, or vice versa).
 
 **Expected**: identical outcomes for the same gesture on the same screen on both platforms.
 
+## Scenario 7 — Cross-view parity (FR-011, SC-005)
+
+1. On the Today screen, switch view mode (tap the view-mode icon in the app bar) to **grouped**.
+2. Confirm the per-row Minus button is not present, and swipe a task right.
+   **Expected**: same outcome as Scenario 3 (task returns to Inbox, or is blocked with a message
+   if due today).
+3. Switch to **calendar** view. Swipe a task left.
+   **Expected**: same outcome as Scenario 2 (task postponed to tomorrow).
+4. Repeat steps 1–3 on the Inbox screen using Scenario 1 (swipe left → today) and Scenario 4
+   (swipe right → confirm → delete) as the reference outcomes.
+5. Confirm the Plus (Inbox) / Minus (Today) buttons are absent in **all three** view modes, not
+   just list — this is the SC-003 gap `/speckit-analyze` flagged.
+
+## Scenario 8 — Swipe captions (FR-012, SC-006)
+
+1. On any screen/view mode, begin dragging a task row left or right without releasing.
+2. **Expected**: the revealed background shows both an icon and a readable text caption
+   underneath it — never an icon alone. Verify the caption matches the action: "Tomorrow" (Today
+   swipe-left), "Inbox" (Today swipe-right), "Today" (Inbox swipe-left), "Delete" (Inbox
+   swipe-right).
+
+## Scenario 9 — Onboarding hint plays once per screen (FR-013–FR-017, SC-007)
+
+Prerequisite: a fresh install, or clear the app's local data / use the app's "reset" path if one
+exists, so `swipe_hint_shown_today` / `swipe_hint_shown_inbox` are both unset.
+
+1. Open the Today screen for the first time, with at least one task present.
+   **Expected**: within a few seconds, one task row nudges on its own (no tap/swipe from you), and
+   a SnackBar appears reading something like "Swipe left to move to tomorrow, swipe right to move
+   to Inbox". Both disappear on their own after a few seconds.
+2. Fully close and reopen the app, return to the Today screen.
+   **Expected**: no nudge, no SnackBar this time.
+3. Open the Inbox screen for the first time, with at least one task present.
+   **Expected**: the hint plays here too (independently of Today's hint already being shown), with
+   Inbox-specific wording, e.g. "Swipe left to schedule for today, swipe right to delete".
+4. Reset the local state again (or fresh install once more). This time, as soon as the Today
+   screen's hint starts, manually swipe any task before the nudge finishes.
+   **Expected**: the nudge animation and SnackBar stop immediately, your real swipe's action
+   completes normally (per Scenario 1–4), and reopening the screen afterward shows no further
+   automatic hint on Today.
+5. Repeat step 1 in **grouped** and **calendar** view mode (per Scenario 7) with the hint state
+   reset.
+   **Expected**: the hint still targets one row and behaves the same regardless of view mode.
+
 ## Automated coverage (see `tasks.md` once generated)
 
 This quickstart is for manual/exploratory validation. Automated coverage lives in:
 - `test/task_manager_unit_test.dart` — `scheduleForTomorrow`, `deleteTask` unit tests
 - `test/src/screens/inbox_tasks/swipe_actions_test.dart` — widget tests for the four swipe
   behaviors, the due-today guard, the delete-confirmation flow, and Plus/Minus button removal
+
+Scenarios 7–9 (Increments 2 and 3) are UI-composition changes in
+`file_view.dart`/`calendar_view.dart`/`inbox_tasks.dart`/`settings_controller.dart`; per the same
+`testWidgets()`/`loadTasks`-isolate-hang limitation documented for T009/T013 in `tasks.md`, they
+are expected to be verified manually here rather than by a new widget test, unless `tasks.md`
+records a different decision when generated. `SettingsController`'s new `swipeHintShown`/
+`markSwipeHintShown` delegation (Increment 3) is simple enough to unit-test directly (no
+`loadTasks`/isolate involvement), similar to how `TaskManager.scheduleForTomorrow`/`deleteTask`
+are unit-tested in Increment 1 — `tasks.md` should decide whether to add that coverage.

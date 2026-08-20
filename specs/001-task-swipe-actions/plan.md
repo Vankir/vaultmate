@@ -15,6 +15,25 @@ for confirmation and then permanently deletes the task. Two new `TaskManager` me
 `removeFromToday`, wired through two new `InboxTasksCubit` methods, following the exact pattern
 already used for the buttons being replaced.
 
+**Increment 2 (FR-011, FR-012 — added to spec.md after Increment 1 shipped)**: Increment 1 (above)
+was implemented and merged (PR #51) scoped to the flat list view only, with icon-only swipe
+backgrounds — `/speckit-analyze` found this leaves FR-011 (swipe parity across list/grouped/
+calendar views) and FR-012 (text caption on every swipe icon) with zero task coverage, and SC-003
+("Plus/Minus no longer appear anywhere") unmet in grouped/calendar views. This increment extends
+the existing `_wrapTaskCardWithSwipe` helper to also wrap tasks rendered inside `FileView`
+(grouped) and `CalendarView` (calendar), and adds a caption `Text` under each swipe icon. No new
+`TaskManager`/`InboxTasksCubit` methods are needed — this is a presentation-layer extension of
+already-shipped logic.
+
+**Increment 3 (FR-013–FR-017, SC-007 — User Story 4, discoverability)**: The first time the Today
+or Inbox screen loads with at least one task, one task row plays a brief self-driven nudge
+animation that partially reveals its swipe backgrounds, paired with a screen-specific `SnackBar`
+explaining what swipe left/right do on that screen. This plays once per screen, ever (state
+persisted via `SharedPreferences` through the existing `SettingsService`/`SettingsController`
+layer, mirroring the existing `showOverdueOnly` flag), and is cancelled immediately if the user
+performs a real swipe. No new dependency, no `TaskManager` change — this is additive UI state in
+`InboxTasksCubit`/`SettingsController` plus a new small animated widget in `inbox_tasks.dart`.
+
 ## Technical Context
 
 **Language/Version**: Dart (SDK `>=3.0.0`), Flutter 3.35.1 / Dart 3.9.0 (per CI in
@@ -48,6 +67,23 @@ change (Constitution Principle II).
 **Scale/Scope**: One shared screen (`InboxTasks`, driven by its existing `today` flag), 4 swipe
 behaviors, 2 new `TaskManager` methods, 2 new `InboxTasksCubit` methods, removal of 2 buttons.
 
+**Increment 2 Scale/Scope**: No new business-logic methods. Widen `FileView.taskCards` and
+`CalendarView.taskCards` from `List<TaskCard>` to `List<Widget>` (2 files) so their render lists
+can hold swipe-wrapped rows, and add one new required field to each (`FileView.fileName`,
+`CalendarView.scheduledDate`) replacing their own `taskCards[0].task...` reads at render time (see
+`research.md` Increment 2 correction); wrap those rows at their existing construction sites in
+`_createFileViews`/`_createCalendarViews` (`inbox_tasks.dart`) using the existing
+`_wrapTaskCardWithSwipe`; add a caption `Text` to `_buildSwipeBackground`'s `Icon` (1 method, same
+file). 4 total call sites gain swipe; 1 background-builder method gains a caption.
+
+**Increment 3 Scale/Scope**: 2 new `SettingsService`/`SettingsController` boolean flags
+(`swipeHintShownToday`, `swipeHintShownInbox`), 2 new `InboxTasksCubit` members (a `swipeHintShown`
+getter, a `markSwipeHintShown()` setter — both delegating to `SettingsController`, mirroring the
+existing `showOverdueOnly` pattern), 1 new small `StatefulWidget` in `inbox_tasks.dart` for the
+nudge animation, reuse of the existing `ScaffoldMessenger`/`SnackBar` pattern already used for
+`InboxTasksMessage` for the explanatory text. No new package dependency (`AnimationController` is
+part of the Flutter SDK, `SharedPreferences` is already a dependency).
+
 ## Constitution Check
 
 *GATE: Must pass before Phase 0 research. Re-check after Phase 1 design.*
@@ -69,6 +105,34 @@ No violations requiring the Complexity Tracking table.
 `deleteTask` reuses the existing per-file save/rewrite path (`data-model.md`); widget sync is
 inherited "for free" via the existing `notifyListeners()` call already present in
 `TaskManager.saveTasks`. All gates above still PASS; no violations.
+
+### Increment 2 Constitution Re-Check (FR-011, FR-012)
+
+| Principle | Check | Status |
+|---|---|---|
+| I. Local-First & Privacy by Default | Purely presentational (widget type widening + a `Text` caption); no new I/O, no network. | PASS |
+| II. Obsidian Markdown Compatibility | No parser/saver change; `Task` fields are untouched. | PASS |
+| III. Test-First for Parsing & Business Logic | No `lib/src/core` change — nothing new to unit-test there; widget-level parity is covered by the existing widget-test limitation already on record (see `research.md` swipe-wrap decision and `tasks.md` T009/T013 — `TaskManager.loadTasks` hangs under `testWidgets()`), so parity/caption verification stays manual via `quickstart.md`, same as Increment 1's UI wiring. | PASS |
+| IV. Branch & Release Discipline | Continues on `feature/001-task-swipe-actions` (or a follow-up branch off `main`, since Increment 1 already merged) per normal PR flow. | PASS |
+| V. Consistent State Management & Simplicity | Reuses `_wrapTaskCardWithSwipe` as-is (no new gesture/state pattern); widens an existing widget's field type rather than adding a new one. | PASS |
+| Platform & Distribution Constraints | Same `Dismissible`-only, pure-Dart approach as Increment 1 — inherently identical on iOS/Android; no widget-code-path (home screen widget) interaction, since this only changes which in-app views render the already-existing swipe gesture. | PASS |
+| Development Workflow & Quality Gates | PR into `main`, CI (`run_tests`) must pass. | PASS |
+
+No violations requiring the Complexity Tracking table.
+
+### Increment 3 Constitution Re-Check (FR-013–FR-017, User Story 4)
+
+| Principle | Check | Status |
+|---|---|---|
+| I. Local-First & Privacy by Default | The "hint shown" flag is a local `SharedPreferences` boolean, same mechanism as every other app setting (`SettingsService`); no network call, no analytics event. | PASS |
+| II. Obsidian Markdown Compatibility | No `Task`/parser/saver interaction at all — this feature never reads or writes vault content. | PASS |
+| III. Test-First for Parsing & Business Logic | No `lib/src/core` change. The new `InboxTasksCubit.swipeHintShown`/`markSwipeHintShown()` members are simple delegations (mirroring `showOverdueOnly`, which has no dedicated unit test either); the animation/SnackBar timing itself is a widget-level concern verified manually via `quickstart.md`, consistent with Increment 1/2's UI-wiring verification approach. | PASS |
+| IV. Branch & Release Discipline | Same branch/PR flow as prior increments. | PASS |
+| V. Consistent State Management & Simplicity | Reuses the existing `SettingsService`/`SettingsController` flag pattern (`showOverdueOnly`) verbatim for persistence, and the existing `ScaffoldMessenger`/`SnackBar` pattern (`InboxTasksMessage`) for the message — no new state-management approach, no new package. | PASS |
+| Platform & Distribution Constraints | `AnimationController`/`SnackBar`/`SharedPreferences` are all cross-platform Flutter SDK primitives; no platform-exclusive code; no interaction with the home-screen widget code paths (this never touches task data). | PASS |
+| Development Workflow & Quality Gates | PR into `main`, CI (`run_tests`) must pass. | PASS |
+
+No violations requiring the Complexity Tracking table.
 
 ## Project Structure
 
@@ -95,8 +159,19 @@ lib/src/
 │       └── task_note_saver.dart       # verify/extend to support removing a task's line
 ├── screens/inbox_tasks/
 │   ├── inbox_tasks.dart               # wrap TaskCard in Dismissible, remove Plus/Minus buttons
+│   │                                   # [Increment 2] also wrap TaskCards inside _createFileViews /
+│   │                                   # _createCalendarViews via _wrapTaskCardWithSwipe; add caption
+│   │                                   # Text to _buildSwipeBackground
+│   │                                   # [Increment 3] new _SwipeHintRow StatefulWidget wraps the
+│   │                                   # hint-target row's swipe wrapper; shows explanatory SnackBar
+│   ├── file_view.dart                  # [Increment 2] taskCards: List<TaskCard> → List<Widget>
+│   ├── calendar_view.dart              # [Increment 2] taskCards: List<TaskCard> → List<Widget>
 │   └── cubit/
 │       └── inbox_tasks_cubit.dart     # add postponeToTomorrowPressed, deleteTaskPressed
+│                                       # [Increment 3] add swipeHintShown getter, markSwipeHintShown()
+├── screens/settings/
+│   ├── settings_service.dart          # [Increment 3] add swipeHintShownToday/Inbox SharedPreferences keys
+│   └── settings_controller.dart       # [Increment 3] add cached bool fields + get/update, mirroring showOverdueOnly
 └── widgets/
     └── task_card.dart                 # no gesture logic here; Dismissible wraps it in inbox_tasks.dart
 
@@ -108,4 +183,9 @@ test/
 
 **Structure Decision**: Single existing Flutter project (`lib/src/core` / `screens` / `widgets`,
 mirrored under `test/`). No new module, package, or project boundary — this is additive logic
-inside the existing `InboxTasks` screen and `TaskManager`/`InboxTasksCubit` layers.
+inside the existing `InboxTasks` screen and `TaskManager`/`InboxTasksCubit` layers. Increment 2
+touches two additional existing files (`file_view.dart`, `calendar_view.dart`) but adds no new
+file, module, or dependency. Increment 3 adds one small private widget class inside the existing
+`inbox_tasks.dart` (no new file) and extends the existing `screens/settings` persistence layer with
+two more boolean flags, following the same pattern as every other per-user-preference flag already
+there.

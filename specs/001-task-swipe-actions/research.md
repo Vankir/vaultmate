@@ -96,3 +96,126 @@ instead of only in one of several list-rendering paths.
 would leave calendar/search results in the same screen without the swipe affordance while their
 Plus/Minus buttons (via the same `_createTaskCard`) are being removed, producing an inconsistent,
 now-button-less row with no replacement gesture.
+
+**Outcome (superseded by Increment 2 below)**: During implementation this decision could not be
+followed exactly. `_createTaskCard` return type is `TaskCard`, and `_createCalendarViews`/
+`_createFileViews` read `.task` off each `TaskCard` *before* grouping it into a `CalendarView`/
+`FileView` (e.g. `calendarTasks[0].task.scheduled` for date-grouping,
+`fileTasks[0].task.taskSource!.fileName` for file-grouping). Wrapping inside `_createTaskCard`
+itself would have changed its return type to `Widget`/`Dismissible`, breaking those `.task` reads.
+Given this, the shipped Increment 1 scoped swipe to the flat list view only (`_showListView`,
+via `_wrapTaskCardWithSwipe`, applied *after* `_createViewItems` returns), leaving grouped/calendar
+views on the old Plus/Minus button. This is what Increment 2 (below) now closes.
+
+## Decision (Increment 2): Wrap at the `FileView`/`CalendarView` render-list boundary, not inside `_createTaskCard`
+
+**Decision**: Keep `_createTaskCard` returning a plain `TaskCard` (so `.task` stays readable for
+grouping logic). In `_createFileViews`/`_createCalendarViews`, keep building/grouping with plain
+`TaskCard`s exactly as today, but when adding each card to the accumulator list that gets handed to
+`FileView`/`CalendarView`, wrap it with the existing `_wrapTaskCardWithSwipe(context, card)` first.
+Widen `FileView.taskCards` and `CalendarView.taskCards` from `List<TaskCard>` to `List<Widget>` for
+rendering (their `ListView(children: taskCards)` only ever needed `List<Widget>`), **and** add a
+new required field to each — `FileView.fileName` (`String?`) and `CalendarView.scheduledDate`
+(`DateTime?`) — computed by the caller from the plain (still-unwrapped) `TaskCard` group and passed
+in explicitly, replacing the widgets' own `taskCards[0].task.taskSource?.fileName` /
+`taskCards[0].task.scheduled` reads inside `build()`.
+
+**Correction (caught at `/speckit-tasks` time)**: The first draft of this decision claimed
+`FileView`/`CalendarView` only read `.task` off element `[0]` *before* the list is built. That is
+wrong — both widgets' own `build()` methods read `taskCards[0].task...` directly off their `this.
+taskCards` field at render time (`file_view.dart:25`, `calendar_view.dart:25`), not just at
+construction. Widening the field to `List<Widget>` alone would break both lines (a `Widget` has no
+`.task`). Passing `fileName`/`scheduledDate` as separate explicit fields — computed once by the
+caller, which still has the plain `TaskCard` group at hand before wrapping — removes `FileView`/
+`CalendarView`'s need to read `.task` at all, which is also a cleaner separation of concerns (pure
+presentational widgets driven by explicit params) than reaching into a list element's type.
+
+**Rationale**: Reuses `_wrapTaskCardWithSwipe` verbatim (same gesture, same today/inbox branching,
+same captions once added) — no gesture logic is duplicated. The grouping-key reads that motivated
+Increment 1's scope-narrowing happen strictly before wrapping, so they're unaffected. This is the
+smallest change that satisfies FR-011 without touching `_createTaskCard`'s contract.
+
+**Alternatives considered**:
+- Change `_createTaskCard`'s return type to `Widget` and have `_createCalendarViews`/
+  `_createFileViews` re-derive the grouping key some other way (e.g. pass `Task` alongside the
+  widget in a tuple). Rejected — larger diff for the same outcome, and `_createTaskCard`'s return
+  type is part of the existing (working, tested) list-view path; narrowing the change to
+  `FileView`/`CalendarView` instead keeps Increment 1's code path untouched.
+- Duplicate `_wrapTaskCardWithSwipe` inside `file_view.dart`/`calendar_view.dart`. Rejected — two
+  copies of the same gesture logic would drift, violating Constitution Principle V.
+- Keep deriving `fileName`/`scheduledDate` from `taskCards[0]` but type that one element
+  differently from the rest (e.g. `List<Widget> taskCards` plus a separate `TaskCard
+  representativeCard`). Rejected — two references to overlapping data is more confusing than one
+  explicit, purpose-named field per widget (`fileName`, `scheduledDate`).
+
+## Decision (Increment 2): Swipe backgrounds gain a caption `Text` under the icon
+
+**Decision**: `_buildSwipeBackground` takes an additional `required String caption` parameter and
+renders a `Column` (`Icon`, then `Text(caption, style: TextStyle(color: Colors.white))`) instead of
+a bare `Icon`. Captions, one per swipe direction per screen (matching FR-012's examples exactly):
+Today swipe-left → "Tomorrow", Today swipe-right → "Inbox", Inbox swipe-left → "Today", Inbox
+swipe-right → "Delete".
+
+**Rationale**: `Dismissible.background`/`secondaryBackground` accept any `Widget`, so adding a
+`Text` under the existing `Icon` is a same-widget-tree change with no new dependency. Keeping the
+existing `alignment`/`padding` on the outer `Container` centers the icon+caption pair together.
+
+**Alternatives considered**: A `Tooltip` instead of a visible caption. Rejected — FR-012 requires
+the caption to be visible during the swipe gesture itself (a tooltip needs a long-press/hover,
+which doesn't apply mid-drag on touch devices).
+
+## Decision (Increment 3): Persist the "hint shown" flag via the existing `SettingsService`/`SettingsController` pattern
+
+**Decision**: Add two `SharedPreferences`-backed booleans, `swipe_hint_shown_today` and
+`swipe_hint_shown_inbox`, to `SettingsService` (async getter/setter, matching every other flag
+there), cached as fields on `SettingsController` (loaded once during its existing init sequence,
+synchronous getter afterward, `update...()` writes through and calls `notifyListeners()`) —
+following the exact shape of the existing `showOverdueOnly`/`_showOverdueOnly` pair. `InboxTasksCubit`
+exposes `bool get swipeHintShown` and `Future<void> markSwipeHintShown()`, each picking the
+`today`- or `inbox`-keyed flag based on the cubit's own `today` field, mirroring
+`showOverdueOnly`'s cubit-level delegation to `SettingsController.getInstance()`.
+
+**Rationale**: This is the same settings-persistence path already used throughout the app (view
+mode, sort mode, due-today toggle, the general first-run `onboarding_complete` flag, etc.) — no new
+storage mechanism, and it satisfies FR-014's "persist locally across app restarts" without adding a
+dependency. Deliberately named `swipe_hint_shown_*` (not reusing `onboarding_complete`) since that
+existing key already gates the unrelated full-screen vault-setup `OnboardingPage`
+(`lib/src/screens/introduction/onboarding.dart`) — conflating the two would either replay the
+swipe hint on an unrelated flag or skip it for users who completed vault setup before this feature
+existed.
+
+**Alternatives considered**: A single combined flag for both screens. Rejected — FR-013's
+acceptance scenario 4/US4 explicitly requires Today's and Inbox's hints to be independent (seeing
+one must not suppress the other).
+
+## Decision (Increment 3): One-time nudge is a self-contained `StatefulWidget`, not part of `Dismissible`
+
+**Decision**: Introduce a small `StatefulWidget` (e.g. `_SwipeHintRow`) that wraps the already
+swipe-enabled row (the existing `_wrapTaskCardWithSwipe` output) for exactly one row per screen —
+the first row rendered, on the first build where `!cubit.swipeHintShown` and the list is
+non-empty. In `initState`, after a short `Future.delayed` (to let the list settle visually), it
+drives an `AnimationController` (`Transform.translate` on the row, oscillating a small horizontal
+offset a couple of times) so the row visually nudges without registering as a real `Dismissible`
+drag (Flutter's `Dismissible` drag state is driven by its own internal `GestureDetector`, which a
+programmatic `Transform` on an ancestor does not touch). At the same moment, it shows the
+screen-specific message via `ScaffoldMessenger.of(context).showSnackBar(...)` — reusing the pattern
+already in `inbox_tasks.dart`'s `InboxTasksMessage` handling — with a multi-second `duration` so it
+auto-dismisses without a user tap. On animation completion, or immediately if the underlying
+`Dismissible` reports a real drag start first, it calls `markSwipeHintShown()` once and does not
+re-arm.
+
+**Rationale**: Keeps the hint entirely additive and decoupled from `Dismissible`'s own gesture
+handling — no risk of the fake nudge being misread as a real swipe-to-commit, and no change to
+`_wrapTaskCardWithSwipe`'s existing, already-shipped logic (Constitution Principle V: don't touch
+working code for an unrelated feature). Reusing `SnackBar` for the message avoids adding a new
+dialog/overlay pattern for what must be non-blocking (per spec Assumptions: "not a modal dialog the
+user must tap through").
+
+**Alternatives considered**:
+- A full-screen coach-mark/overlay (dim background, spotlight on the row, "Got it" button).
+  Rejected — spec Assumptions explicitly rule out a tap-through modal; this is exactly that pattern.
+- Driving the *real* `Dismissible` programmatically (e.g. via a `GlobalKey` and simulating drag
+  updates) to produce a "real" partial swipe for the hint. Rejected — `Dismissible` has no public
+  API for a programmatic partial-drag; reverse-engineering its private `_DismissibleState` is
+  fragile across Flutter SDK versions, whereas a `Transform.translate` overlay is simple, self
+  contained, and visually equivalent for a brief teaching nudge.

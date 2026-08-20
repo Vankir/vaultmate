@@ -24,6 +24,25 @@ class MockSettingsController extends Mock implements SettingsController {
 
   @override
   ViewMode get viewMode => ViewMode.list;
+
+  bool _swipeHintShownToday = false;
+  bool _swipeHintShownInbox = false;
+
+  @override
+  bool get swipeHintShownToday => _swipeHintShownToday;
+
+  @override
+  bool get swipeHintShownInbox => _swipeHintShownInbox;
+
+  @override
+  Future<void> updateSwipeHintShownToday(bool value) async {
+    _swipeHintShownToday = value;
+  }
+
+  @override
+  Future<void> updateSwipeHintShownInbox(bool value) async {
+    _swipeHintShownInbox = value;
+  }
 }
 
 void main() {
@@ -131,6 +150,28 @@ void main() {
       cubit.removeFromTodayPressed(freeTask);
       await Future.delayed(Duration.zero);
       expect(freeTask.scheduled, isNull);
+
+      await cubit.close();
+    });
+
+    test(
+        'swipeHintShown reads/writes the today-vs-inbox flag independently',
+        () async {
+      var storage = InMemoryTasksFileStorage();
+      var manager = TaskManager(storage);
+      // today: false throughout, matching this file's established pattern
+      // (see the comment above) — this exercises the Inbox branch of the
+      // swipeHintShown/markSwipeHintShown delegation.
+      var cubit = InboxTasksCubit(manager, false);
+
+      expect(cubit.swipeHintShown, isFalse);
+
+      await cubit.markSwipeHintShown();
+      expect(cubit.swipeHintShown, isTrue);
+
+      // The Today flag is a separate field on the same settings singleton
+      // and must be unaffected by marking the Inbox hint as shown.
+      expect(SettingsController.getInstance().swipeHintShownToday, isFalse);
 
       await cubit.close();
     });

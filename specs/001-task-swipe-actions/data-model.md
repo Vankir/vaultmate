@@ -52,3 +52,32 @@ task list. It does **not**:
 This reuses the existing per-file rewrite approach in `TaskManager.saveTasks`: save the file's
 task list with the deleted task excluded, exactly as an edit to that task's line would be saved,
 just omitted instead of changed. No new persistence mechanism is introduced.
+
+## Addendum (Increment 2 — FR-011, FR-012)
+
+No `Task` field, entity, or state transition changes. View-mode swipe parity and swipe-icon
+captions are presentation-only: which widget renders a task row (list/grouped/calendar) and what
+that row's swipe background shows are UI concerns, not data. The state transitions and guard
+above already apply uniformly regardless of view mode — only their *trigger surface* (which
+screens have swipe wired up) changes in Increment 2.
+
+## Addendum (Increment 3 — FR-013–FR-017)
+
+No `Task` entity change. One new piece of local app state is introduced, not part of the `Task`
+model: a per-screen boolean, "has the swipe onboarding hint played on this screen yet" —
+`swipeHintShownToday` / `swipeHintShownInbox` — persisted via `SharedPreferences` through
+`SettingsService`/`SettingsController` (see `research.md`). This is app-preference state, the same
+category as `viewMode` or `showOverdueOnly`, not vault/task data: it is never written to a
+markdown file and has no interaction with `TaskManager` or the parser/saver layer.
+
+**State transition** (per screen, independent for Today and Inbox):
+
+```text
+not shown (default: false)
+   │  screen loads with ≥1 task AND flag is false
+   │    → nudge animation + SnackBar message play
+   │    → markSwipeHintShown() called (on completion, or immediately on interruption
+   │      by a real swipe — see FR-016)
+   ▼
+shown (true) — persists across app restarts; only resets if local app data is cleared/reinstalled
+```

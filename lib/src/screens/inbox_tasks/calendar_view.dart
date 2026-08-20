@@ -2,31 +2,29 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:obsi/src/core/utils.dart';
 import 'package:obsi/src/screens/settings/settings_controller.dart';
-import 'package:obsi/src/widgets/task_card.dart';
 
 class CalendarView extends Card {
-  final List<TaskCard> taskCards;
+  final List<Widget> taskCards;
   final String? highlightedText;
+  final DateTime? scheduledDate;
 
   const CalendarView(
     this.taskCards, {
     super.key,
     this.highlightedText,
+    required this.scheduledDate,
   });
 
   @override
   Widget build(BuildContext context) {
-    DateTime? date;
     String? dateString;
     String? dayOfWeekString;
     var template = SettingsController.getInstance().dateTemplate;
 
-    if (taskCards.isNotEmpty) {
-      date = taskCards[0].task.scheduled;
-      if (date != null) {
-        dateString = DateFormat(template).format(date);
-        dayOfWeekString = DateFormat('EEEE').format(date); // Full day name
-      }
+    if (scheduledDate != null) {
+      dateString = DateFormat(template).format(scheduledDate!);
+      dayOfWeekString =
+          DateFormat('EEEE').format(scheduledDate!); // Full day name
     }
 
     var defaultTextStyle =

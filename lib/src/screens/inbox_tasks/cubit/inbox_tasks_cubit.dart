@@ -28,6 +28,9 @@ class InboxTasksCubit extends Cubit<InboxTasksState> {
   SortMode get sortMode => SettingsController.getInstance().sortMode;
   ViewMode get viewMode => SettingsController.getInstance().viewMode;
   bool get showOverdueOnly => SettingsController.getInstance().showOverdueOnly;
+  bool get swipeHintShown => today
+      ? SettingsController.getInstance().swipeHintShownToday
+      : SettingsController.getInstance().swipeHintShownInbox;
   Set<String> get selectedTags => Set.from(_selectedTags);
   Set<String> get excludedTags => Set.from(_excludedTags);
   List<String> get availableTags => _taskManager.allTags;
@@ -256,6 +259,15 @@ class InboxTasksCubit extends Cubit<InboxTasksState> {
 
   Future<void> deleteTaskPressed(Task task) async {
     await _taskManager.deleteTask(task);
+  }
+
+  Future<void> markSwipeHintShown() async {
+    if (swipeHintShown) return;
+    if (today) {
+      await SettingsController.getInstance().updateSwipeHintShownToday(true);
+    } else {
+      await SettingsController.getInstance().updateSwipeHintShownInbox(true);
+    }
   }
 
   Future<void> _scheduleNotifications(List<Task> tasks) async {
