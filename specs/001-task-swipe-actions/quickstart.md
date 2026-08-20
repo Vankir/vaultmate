@@ -78,7 +78,7 @@ on iOS, or vice versa).
    swipe-left), "Inbox" (Today swipe-right), "Today" (Inbox swipe-left), "Delete" (Inbox
    swipe-right).
 
-## Scenario 9 — Onboarding hint plays once per screen (FR-013–FR-017, SC-007)
+## Scenario 9 — Onboarding hint repeats until dismissed, once per screen (FR-013–FR-017, SC-007)
 
 Prerequisite: a fresh install, or clear the app's local data / use the app's "reset" path if one
 exists, so `swipe_hint_shown_today` / `swipe_hint_shown_inbox` are both unset.
@@ -86,18 +86,27 @@ exists, so `swipe_hint_shown_today` / `swipe_hint_shown_inbox` are both unset.
 1. Open the Today screen for the first time, with at least one task present.
    **Expected**: within a few seconds, one task row nudges on its own (no tap/swipe from you), and
    a SnackBar appears reading something like "Swipe left to move to tomorrow, swipe right to move
-   to Inbox". Both disappear on their own after a few seconds.
-2. Fully close and reopen the app, return to the Today screen.
-   **Expected**: no nudge, no SnackBar this time.
-3. Open the Inbox screen for the first time, with at least one task present.
+   to Inbox". Neither disappears on its own — the row keeps nudging (pausing briefly between
+   nudges) and the SnackBar stays up indefinitely, for as long as you leave the screen alone.
+2. Tap anywhere on the screen — the app bar, empty space, or a different (non-hinted) task row, not
+   the nudging row itself.
+   **Expected**: the nudge animation stops and the SnackBar dismisses immediately.
+3. Fully close and reopen the app, return to the Today screen.
+   **Expected**: no nudge, no SnackBar this time — the tap in step 2 marked the Today hint as shown.
+4. Open the Inbox screen for the first time, with at least one task present.
    **Expected**: the hint plays here too (independently of Today's hint already being shown), with
-   Inbox-specific wording, e.g. "Swipe left to schedule for today, swipe right to delete".
-4. Reset the local state again (or fresh install once more). This time, as soon as the Today
-   screen's hint starts, manually swipe any task before the nudge finishes.
+   Inbox-specific wording, e.g. "Swipe left to schedule for today, swipe right to delete", and
+   likewise repeats until dismissed.
+5. Reset the local state again (or fresh install once more). This time, as soon as the Today
+   screen's hint starts, manually swipe any task before tapping anywhere or waiting it out.
    **Expected**: the nudge animation and SnackBar stop immediately, your real swipe's action
    completes normally (per Scenario 1–4), and reopening the screen afterward shows no further
    automatic hint on Today.
-5. Repeat step 1 in **grouped** and **calendar** view mode (per Scenario 7) with the hint state
+6. Reset the local state once more. Open the Today screen, let the hint start, then navigate away
+   (e.g. switch tabs or background the app) without tapping the screen or swiping.
+   **Expected**: reopening the Today screen shows the hint again from the start — it was never
+   marked shown, since it was never actually dismissed.
+7. Repeat step 1 in **grouped** and **calendar** view mode (per Scenario 7) with the hint state
    reset.
    **Expected**: the hint still targets one row and behaves the same regardless of view mode.
 

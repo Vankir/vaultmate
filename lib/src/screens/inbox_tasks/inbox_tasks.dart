@@ -116,20 +116,33 @@ class InboxTasks extends StatelessWidget with WidgetsBindingObserver {
       return swiped;
     }).toList();
     // Add extra space after the last card to avoid FAB overlap
-    return RefreshIndicator(
-      onRefresh: () async {
-        _inboxTaskCubit.refreshTasks();
-        // Wait a brief moment for the refresh to start
-        await Future.delayed(const Duration(milliseconds: 300));
+    return Listener(
+      // Dismisses this screen's onboarding hint (if one is active) on any
+      // tap anywhere in the task list area, not just the hinted row itself
+      // (see _SwipeHintRow, FR-016). Translucent so it never intercepts
+      // taps, scrolls, or swipes meant for the list below it - _SwipeHintRow
+      // notices via its own poll of _inboxTaskCubit.swipeHintShown.
+      behavior: HitTestBehavior.translucent,
+      onPointerDown: (_) {
+        if (!_inboxTaskCubit.swipeHintShown) {
+          _inboxTaskCubit.markSwipeHintShown();
+        }
       },
-      child: ListView(
-        physics: const AlwaysScrollableScrollPhysics(),
-        controller: _scrollController,
-        children: [
-          _buildTagFilterLine(context),
-          ...swipableItems,
-          const SizedBox(height: 80), // Adjust height as needed for FAB
-        ],
+      child: RefreshIndicator(
+        onRefresh: () async {
+          _inboxTaskCubit.refreshTasks();
+          // Wait a brief moment for the refresh to start
+          await Future.delayed(const Duration(milliseconds: 300));
+        },
+        child: ListView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          controller: _scrollController,
+          children: [
+            _buildTagFilterLine(context),
+            ...swipableItems,
+            const SizedBox(height: 80), // Adjust height as needed for FAB
+          ],
+        ),
       ),
     );
   }
@@ -777,10 +790,12 @@ class InboxTasks extends StatelessWidget with WidgetsBindingObserver {
 // One-time onboarding hint (FR-013-FR-017): nudges its child left/right to
 // preview the swipe backgrounds and shows a short explanatory SnackBar, the
 // first time a screen (Today or Inbox) loads with at least one task. Purely
-// decorative — it never triggers a real swipe-commit callback. Cancels
-// itself (and marks the hint as shown) the moment the user touches this row,
-// or the moment a real swipe happens on any row on this screen (tracked via
-// InboxTasksCubit.swipeHintShown, polled on each animation tick).
+// decorative — it never triggers a real swipe-commit callback. Repeats
+// indefinitely until dismissed — never on its own — by whichever comes
+// first: the user touching this row directly, tapping anywhere else on the
+// screen (see the Listener in _showListView), or a real swipe happening on
+// any row on this screen (tracked via InboxTasksCubit.swipeHintShown,
+// polled on each animation tick).
 class _SwipeHintRow extends StatefulWidget {
   final Widget child;
   final InboxTasksCubit cubit;
@@ -816,8 +831,10 @@ class _SwipeHintRowState extends State<_SwipeHintRow>
     ]).animate(CurvedAnimation(parent: _controller, curve: Curves.easeInOut));
 
     _controller.addListener(() {
-      // A real swipe may have happened on a different row on this screen
-      // while this animation was running — stop immediately if so.
+      // A real tap or swipe may have happened anywhere on this screen while
+      // this animation was running (see _finish, the row's own Listener
+      // below, and the screen-wide tap detector in _showListView) — stop
+      // immediately if so.
       if (!_finished && widget.cubit.swipeHintShown) {
         _finish();
       }
@@ -832,11 +849,21 @@ class _SwipeHintRowState extends State<_SwipeHintRow>
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(widget.message),
-        duration: const Duration(seconds: 4),
+        // Effectively indefinite: the message must stay up for as long as
+        // the nudge keeps repeating (FR-017), not disappear on its own
+        // timer. It is only ever taken down by _finish()'s explicit
+        // hideCurrentSnackBar() call, once the hint is actually dismissed.
+        duration: const Duration(days: 1),
       ),
     );
-    await _controller.forward();
-    _finish();
+    // Keep nudging — and keep the message up — until the hint is dismissed
+    // by a tap anywhere on the screen or a real swipe (FR-016). It must
+    // never stop, or mark itself shown, on its own (FR-013, FR-014).
+    while (mounted && !_finished) {
+      await _controller.forward(from: 0.0);
+      if (!mounted || _finished) return;
+      await Future.delayed(const Duration(milliseconds: 900));
+    }
   }
 
   void _finish() {

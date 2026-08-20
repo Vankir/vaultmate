@@ -80,43 +80,52 @@ verifying the task is unchanged.
 ### User Story 4 - Discover swipe via a one-time onboarding hint (Priority: P3)
 
 The first time a user opens the Today screen or the Inbox screen, and at least one task is shown,
-one task row automatically nudges/shakes on its own so the swipe backgrounds (icon and caption)
-behind it become briefly visible, and a short message explains that tasks can be swiped left/right
-and what each direction does on that screen — without the user having to swipe or read a separate
-help page. This happens once per screen and never again after that.
+one task row automatically and repeatedly nudges/shakes on its own so the swipe backgrounds (icon
+and caption) behind it become briefly visible, and a short message explains that tasks can be
+swiped left/right and what each direction does on that screen — without the user having to swipe or
+read a separate help page. The nudge keeps repeating, with the message staying visible, for as long
+as the screen is open and the user has not interacted with it; it stops as soon as the user taps
+anywhere on the screen or swipes any task, and — once stopped that way — never plays again on that
+screen.
 
 **Why this priority**: Swipe replaces controls (Plus/Minus) that were always visible, so a returning
 user has no visual cue that the gesture exists. This is a discoverability aid, not core
 functionality — User Stories 1-3 must work correctly whether or not a user ever sees the hint.
 
 **Independent Test**: On a fresh install (or with the "hint shown" state reset), open the Today
-screen and verify a task row nudges on its own within a few seconds of the list appearing, without
-any tap or swipe from the user. Close and reopen the screen and verify the nudge does not happen
-again. Repeat independently for the Inbox screen.
+screen and verify a task row nudges on its own within a few seconds of the list appearing and keeps
+nudging repeatedly, without any tap or swipe from the user. Tap anywhere on the screen and verify the
+nudging and message stop immediately. Close and reopen the screen and verify the nudge does not
+happen again. Repeat independently for the Inbox screen.
 
 **Acceptance Scenarios**:
 
 1. **Given** the Today screen has never shown the swipe hint before and at least one task is on the
    list, **When** the screen finishes loading, **Then** one task row automatically animates to
    partially reveal both of its swipe backgrounds (icon and caption) and then settles back, without
-   requiring the user to touch it.
+   requiring the user to touch it, and repeats this animation continuously rather than stopping
+   after one cycle.
 2. **Given** the Today or Inbox screen's hint is playing for the first time, **When** the nudge
-   animation runs, **Then** a short, screen-specific text message is also shown explaining what
+   animation starts, **Then** a short, screen-specific text message is also shown explaining what
    swipe left and swipe right do on that screen (e.g., on Today: "Swipe left to move to tomorrow,
    swipe right to move to Inbox"; on Inbox: "Swipe left to schedule for today, swipe right to
-   delete").
-3. **Given** the swipe hint has already played once on a screen, **When** the user opens that screen
-   again (including after restarting the app), **Then** neither the nudge animation nor the
-   explanatory message plays again on that screen.
-4. **Given** the Today screen's hint has already played, **When** the user opens the Inbox screen for
-   the first time, **Then** the Inbox hint (animation and message) still plays once, independently
-   of the Today screen's hint having already been shown.
+   delete"), and that message remains visible for as long as the animation keeps repeating.
+3. **Given** the swipe hint has already been dismissed once on a screen (by a tap or a swipe, per
+   Scenarios 6 and 7), **When** the user opens that screen again (including after restarting the
+   app), **Then** neither the nudge animation nor the explanatory message plays again on that
+   screen.
+4. **Given** the Today screen's hint has already been dismissed, **When** the user opens the Inbox
+   screen for the first time, **Then** the Inbox hint (animation and message) still plays,
+   independently of the Today screen's hint having already been shown.
 5. **Given** a screen has no tasks when it first loads, **When** the screen loads, **Then** no hint
    animation or message plays (there is no row to animate); the hint MAY still play the next time
-   that screen loads with at least one task, if it has not played yet.
-6. **Given** the hint animation and/or message is showing, **When** the user swipes any task before
-   or during it, **Then** the animation stops and the message dismisses immediately, and the hint is
-   treated as already shown.
+   that screen loads with at least one task, if it has not been dismissed yet.
+6. **Given** the hint animation and message are repeating, **When** the user taps anywhere on the
+   screen (not necessarily on the animated row), **Then** the animation stops and the message
+   dismisses immediately, and the hint is treated as already shown.
+7. **Given** the hint animation and message are repeating, **When** the user swipes any task before
+   or during a repeat cycle, **Then** the animation stops and the message dismisses immediately, and
+   the hint is treated as already shown.
 
 ---
 
@@ -147,6 +156,10 @@ again. Repeat independently for the Inbox screen.
   Today by the due-today rule? The hint still plays on it — it only reveals the swipe backgrounds
   briefly, it does not perform a real swipe/dismiss, so the due-today guard is not relevant to the
   hint itself.
+- What happens if the user navigates away from a screen (or the app) while its hint is still
+  repeating, without ever tapping the screen or swiping a task? The hint is not treated as dismissed
+  or shown; it resumes repeating (animation and message) from the start the next time that screen is
+  opened with at least one task present.
 
 ## Requirements *(mandatory)*
 
@@ -183,22 +196,28 @@ again. Repeat independently for the Inbox screen.
   describing the destination or action it performs (for example, "Tomorrow" for the postpone swipe,
   "Inbox" for the unschedule swipe, "Today" for the schedule-for-today swipe, and "Delete" for the
   delete-confirmation swipe). An icon MUST NOT be shown without its caption.
-- **FR-013**: The Today screen and the Inbox screen MUST each, independently, automatically animate
-  one task row the first time that screen is opened with at least one task present, briefly and
-  partially revealing that row's swipe backgrounds (icon and caption) without requiring the user to
-  touch or swipe the row.
+- **FR-013**: The Today screen and the Inbox screen MUST each, independently, automatically and
+  repeatedly animate one task row, starting the first time that screen is opened with at least one
+  task present, briefly and partially revealing that row's swipe backgrounds (icon and caption)
+  without requiring the user to touch or swipe the row. This animation MUST keep repeating
+  continuously — not stop after a single cycle — until it is dismissed per FR-016.
 - **FR-014**: The system MUST NOT play the onboarding hint (animation and message together, see
-  FR-013 and FR-017) on a screen more than once; once a screen's hint has played (or been skipped
-  per FR-016), that "shown" state MUST persist locally across app restarts for that screen.
-- **FR-015**: The onboarding hint MUST NOT block, delay, or intercept the user's ability to swipe,
-  tap, or scroll the task list while it plays.
-- **FR-016**: If the user manually swipes any task on a screen before or during that screen's
-  onboarding hint, the system MUST stop the automatic animation and dismiss the explanatory message
-  immediately, and MUST treat that screen's hint as already shown (see FR-014).
-- **FR-017**: Alongside the nudge animation, the onboarding hint MUST show a short text message
-  explaining what swipe left and swipe right do on that specific screen (distinct wording for Today
-  vs. Inbox, matching each screen's actual swipe actions and captions from FR-001, FR-002, FR-004,
-  FR-005, and FR-012).
+  FR-013 and FR-017) on a screen again after it has been dismissed on that screen per FR-016; once
+  dismissed, that "shown" state MUST persist locally across app restarts for that screen. If the
+  hint began repeating on a screen but was not dismissed before the user left that screen (see Edge
+  Cases), it MUST NOT be treated as shown, and MUST resume repeating the next time that screen is
+  opened with at least one task present.
+- **FR-015**: The onboarding hint, including while its animation is repeating, MUST NOT block,
+  delay, or intercept the user's ability to swipe, tap, or scroll the task list.
+- **FR-016**: If the user taps anywhere on a screen, or manually swipes any task on that screen,
+  while that screen's onboarding hint is repeating, the system MUST stop the automatic animation
+  immediately and dismiss the explanatory message immediately, and MUST treat that screen's hint as
+  shown (see FR-014).
+- **FR-017**: Alongside the repeating nudge animation, the onboarding hint MUST show a short text
+  message explaining what swipe left and swipe right do on that specific screen (distinct wording
+  for Today vs. Inbox, matching each screen's actual swipe actions and captions from FR-001,
+  FR-002, FR-004, FR-005, and FR-012); this message MUST remain visible for as long as the animation
+  keeps repeating, until dismissed per FR-016.
 
 ### Key Entities
 
@@ -224,8 +243,9 @@ again. Repeat independently for the Inbox screen.
   indicator is icon-only.
 - **SC-007**: A user opening the Today or Inbox screen for the first time (with at least one task
   present) sees an automatic hint — both the nudge animation and a screen-specific explanatory
-  message — within a few seconds of the screen loading, with no tap required; on every later visit
-  to that screen, neither the animation nor the message occurs again.
+  message — within a few seconds of the screen loading, with no tap required, and that hint keeps
+  repeating until the user taps the screen or swipes a task; on every later visit to that screen
+  (after the hint has been dismissed that way), neither the animation nor the message occurs again.
 
 ## Assumptions
 
@@ -257,6 +277,11 @@ again. Repeat independently for the Inbox screen.
   being triggered.
 - The exact presentation of the explanatory message (FR-017) — e.g., a snackbar, a small banner
   near the animated row, or similar transient UI — is an implementation detail; the requirement is
-  that it is a short, non-blocking, auto-dismissing text message, not a modal dialog the user must
-  tap through, and that it disappears on its own (or on manual swipe, per FR-016) without requiring
-  an explicit "got it" tap.
+  that it is a short, non-blocking text message, not a modal dialog the user must read and dismiss
+  via a specific "got it" button. It stays on screen for as long as the animation repeats, and is
+  dismissed by the same generic interactions that stop the animation (any tap on the screen, or a
+  swipe, per FR-016) rather than by its own timeout.
+- There is no maximum repeat count or timeout on the onboarding hint (FR-013): it keeps repeating
+  indefinitely while the screen remains open and untouched, until the user taps the screen or swipes
+  a task (FR-016). It is not expected to be intrusive because it is a small, partial, non-blocking
+  animation, per FR-015.

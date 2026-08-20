@@ -298,3 +298,29 @@ a second PR/release cycle for the same feature directory, not a rewrite of the f
 - FR-013–FR-017/SC-007 (onboarding hint) are Phase 8's purpose; like FR-009/SC-004, cross-platform
   behavior for the hint itself is structural (pure Dart/Flutter, no platform code) and confirmed
   manually in T035, not by a dedicated automated parity test
+
+---
+
+## Phase 10: Convergence
+
+**Purpose**: `/speckit-converge` found that `spec.md`'s User Story 4 / FR-013–FR-017 were amended
+(after Phase 8 shipped) to require the onboarding hint's nudge animation and message to repeat
+continuously until the user taps anywhere on the screen or swipes a task, instead of playing a
+single cycle. The `_SwipeHintRow` implementation from Phase 8 (T030–T032) still plays exactly one
+animation cycle and auto-marks the hint "shown" when that cycle ends, with no user interaction
+required, and only stops early on a swipe or a tap on the hinted row itself — not a tap anywhere
+else on the screen. This phase closes that gap. It carries no single `[Story]` label per the
+task-generation rules for cross-cutting fixes, same as Phase 7/9.
+
+- [X] T036 In `_SwipeHintRowState` (`lib/src/screens/inbox_tasks/inbox_tasks.dart:799-876`): replace the single `await _controller.forward(); _finish();` sequence in `_start()` with a repeating loop so the nudge keeps playing continuously instead of stopping after one cycle, per FR-013 (contradicts).
+  **Deviation from task premise**: implemented as `while (mounted && !_finished) { await _controller.forward(from: 0.0); if (!mounted || _finished) return; await Future.delayed(const Duration(milliseconds: 900)); }` — not `_controller.repeat()` (which loops the raw `AnimationController` value 0→1 with no way to insert a pause) and not a manual `forward()`/`reset()` pair (redundant: `forward(from: 0.0)` already resets before running). The 900ms pause between cycles gives a "nudge, pause, nudge" rhythm rather than continuous shaking, consistent with the spec's Assumptions ("small, partial, non-blocking animation").
+- [X] T037 In `_SwipeHintRowState`: stop calling `_finish()`/`markSwipeHintShown()` as a side effect of an animation cycle completing; `_finish()` is now only invoked from an actual dismissal trigger — the row's own `onPointerDown` handler, the existing `Dismissible.onUpdate`-driven `swipeHintShown` poll (via the `AnimationController` listener), and the new screen-wide tap detector from T038 — per FR-014 (contradicts). Achieved as a side effect of T036's loop rewrite: the loop never calls `_finish()` itself, so no code path change was needed beyond T036.
+- [X] T038 Add a screen-wide tap detector that dismisses the active hint from anywhere on the screen (not just the hinted row), per FR-016 (missing).
+  **Deviation from task premise**: implemented as a single `Listener(behavior: HitTestBehavior.translucent, onPointerDown: ...)` wrapping `_showListView`'s returned `RefreshIndicator` (`lib/src/screens/inbox_tasks/inbox_tasks.dart`), not a `GestureDetector`/per-view-root approach, and not routed through a callback on `_SwipeHintRow` — it directly calls `_inboxTaskCubit.markSwipeHintShown()` when not already shown, which `_SwipeHintRowState`'s existing `AnimationController` listener (polling `widget.cubit.swipeHintShown` each tick) already picks up and turns into a `_finish()` call within one frame. Since `_showListView` is the single render entry point for all three view modes (list/grouped/calendar — confirmed via `_createViewItems`'s dispatch on `_inboxTaskCubit.viewMode`), one wrapper covers all of them; no separate per-view-root wrapping was needed. `Listener`/translucent matches the pattern already used for the row's own tap detection, so scrolling/tapping/swiping underneath is unaffected (FR-015).
+- [X] T039 In `_SwipeHintRowState._start()` (`lib/src/screens/inbox_tasks/inbox_tasks.dart:832-837`): removed the `SnackBar`'s fixed `duration: const Duration(seconds: 4)`, replaced with `const Duration(days: 1)` (Flutter's `SnackBar` has no "indefinite" sentinel, so a very large duration is the standard stand-in) so the message does not auto-dismiss on its own timer while the animation is still repeating; it continues to be hidden via the existing `ScaffoldMessenger.of(context).hideCurrentSnackBar()` call in `_finish()`, per FR-017 (contradicts)
+- [X] T040 [P] Updated `specs/001-task-swipe-actions/quickstart.md` Scenario 9: rewrote steps to describe the repeating nudge/message (not disappearing on their own), added a tap-anywhere-dismisses step, and added a new step verifying that leaving the screen without interacting resumes the hint from the start on the next visit (per the new FR-014 edge case) — 5 steps became 7, matching the amended FR-013–FR-017
+- [X] T041 Run `flutter analyze` and the full `flutter test` suite at the repository root; fix any regressions (depends on T036–T039) — `flutter analyze`: 115 issues, identical to the Phase 9 baseline, 0 errors, nothing new in `inbox_tasks.dart` beyond pre-existing warnings; `flutter test`: 216 passed, 3 skipped (pre-existing), 0 failed
+
+**Checkpoint**: The onboarding hint repeats indefinitely until the user taps anywhere on the screen
+or swipes a task, matching the amended spec; a screen left untouched never marks its hint as shown
+and resumes repeating on the next visit.
