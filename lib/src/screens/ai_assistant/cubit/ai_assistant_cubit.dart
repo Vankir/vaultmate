@@ -1,11 +1,10 @@
 import 'dart:async';
 import 'package:bloc/bloc.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:flutter_gemini/flutter_gemini.dart';
 import 'package:intl/intl.dart';
 import 'package:logger/logger.dart';
 import 'package:obsi/src/core/ai_assistant/ai_assistant.dart';
-import 'package:obsi/src/core/ai_assistant/gemini_assistant.dart';
+import 'package:obsi/src/core/ai_assistant/ai_provider_config.dart';
 import 'package:obsi/src/core/ai_assistant/history_storage.dart';
 import 'package:obsi/src/core/ai_assistant/tools/tools.dart';
 import 'package:obsi/src/core/ai_assistant/tools_registry.dart';
@@ -41,8 +40,17 @@ class AIAssistantCubit extends Cubit<AIAssistantState> {
         super(AIAssistantMessages.init()) {
     //_historyStorage = HistoryStorage('${_taskManager.vaultPath}/obsi_ai.md');
     _initializeAIAssistant();
+    _syncBehaviorSettings();
     _registerTools();
     _initializeConversation();
+  }
+
+  /// Reads the persisted "show reasoning"/"always allow tools" settings
+  /// (configured in AI provider settings) into the current message state.
+  void _syncBehaviorSettings() {
+    final settings = SettingsController.getInstance();
+    lastMessages.showReasoning = settings.aiShowReasoning;
+    lastMessages.alwaysAllowTools = settings.aiAlwaysAllowTools;
   }
 
   void _initializeConversation() async {
@@ -54,7 +62,7 @@ class AIAssistantCubit extends Cubit<AIAssistantState> {
         lastMessages = loadedMessages;
       }
 
-      if (aiAssistant?.apiKey == null || aiAssistant?.apiKey == "") {
+      if (_needsWelcomeKeyEntry()) {
         lastMessages.addCustomResponse(_welcomeMessage, "text");
       }
       emit(lastMessages);
@@ -119,7 +127,13 @@ class AIAssistantCubit extends Cubit<AIAssistantState> {
 
   Future<void> sendMessage(String message) async {
     lastMessages.typingUser = AIAssistantMessages.aiUser;
-    if (aiAssistant?.apiKey == null || aiAssistant?.apiKey == "") {
+    // Re-read provider/behavior settings on every message so edits made in
+    // AI provider settings take effect on the next message, without an app
+    // restart (spec FR-005).
+    _initializeAIAssistant();
+    _syncBehaviorSettings();
+
+    if (_needsWelcomeKeyEntry()) {
       SettingsController.getInstance().updateChatGptKey(message);
       _initializeAIAssistant();
       message = "";
@@ -144,15 +158,6 @@ class AIAssistantCubit extends Cubit<AIAssistantState> {
       // var responseData =
       //     aiAssistant.analyzeResponse(response, taskManager.dateTemplate);
       // lastMessages.addCustomResponse(responseData);
-    } on GeminiException catch (e) {
-      SettingsController.getInstance().updateChatGptKey("");
-      aiAssistant?.apiKey = "";
-      lastMessages.clear();
-      lastMessages.addCustomResponse(_welcomeMessage, "text");
-      lastMessages =
-          AIAssistantMessagesWithError(lastMessages, "Invalid API key");
-      lastMessages.typingUser = null;
-      emit(lastMessages);
     } catch (e) {
       lastMessages.addCustomResponse(
           ["An error occurred while processing your request: $e."], "error");
@@ -191,12 +196,21 @@ class AIAssistantCubit extends Cubit<AIAssistantState> {
   }
 
   void _initializeAIAssistant() {
-    aiAssistant = GeminiAssistant(
-        SettingsController.getInstance().chatGptKey ?? '',
-        ToolsRegistry.getInstance());
-    aiAssistant
-        ?.reInitialize(SettingsController.getInstance().chatGptKey ?? '');
+    final config = SettingsController.getInstance().aiProviderConfig;
+    aiAssistant = AIAssistant.fromConfig(config, ToolsRegistry.getInstance());
     _setupMessageListener();
+  }
+
+  /// True only for the Gemini/ChatGPT presets, which support typing an API
+  /// key as the first chat message instead of visiting settings. DeepSeek
+  /// (custom or managed) is configured elsewhere and never needs this.
+  bool _needsWelcomeKeyEntry() {
+    final providerType =
+        SettingsController.getInstance().aiProviderConfig.providerType;
+    final usesKeyEntry = providerType == AIProviderType.gemini ||
+        providerType == AIProviderType.chatgpt;
+    return usesKeyEntry &&
+        (aiAssistant?.apiKey == null || aiAssistant?.apiKey == "");
   }
 
   void _handleMessage(AIMessage message) async {
@@ -204,6 +218,9 @@ class AIAssistantCubit extends Cubit<AIAssistantState> {
       case AIMessageType.reasoning:
         lastMessages.typingUser = AIAssistantMessages.aiUser;
         _emitMessage(message.content ?? "", "reasoning");
+        break;
+      case AIMessageType.error:
+        _emitMessage(message.error ?? "An unknown error occurred.", "error");
         break;
       case AIMessageType.toolConfirmation:
         if (lastMessages.alwaysAllowTools) {
@@ -237,18 +254,6 @@ class AIAssistantCubit extends Cubit<AIAssistantState> {
         responseType == "reasoning" ? AIAssistantMessages.aiUser : null;
     emit(assistantMessage);
     await _historyStorage?.appendMessageToLog(message, false);
-  }
-
-  void setShowReasoning(bool value) {
-    lastMessages = AIAssistantMessages(lastMessages);
-    lastMessages.showReasoning = value;
-    emit(lastMessages);
-  }
-
-  void setAlwaysAllowTools(bool value) {
-    lastMessages = AIAssistantMessages(lastMessages);
-    lastMessages.alwaysAllowTools = value;
-    emit(lastMessages);
   }
 
   Future<void> confirmToolAction(int actionId, bool allowed) async {

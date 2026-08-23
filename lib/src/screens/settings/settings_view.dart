@@ -9,6 +9,7 @@ import 'package:obsi/src/core/utils.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:obsi/src/screens/subscription/subscription_screen.dart';
+import 'package:obsi/src/screens/settings/ai_provider_settings_view.dart';
 
 import 'settings_controller.dart';
 
@@ -273,6 +274,17 @@ class _SettingsViewState extends State<SettingsView> {
                       },
                     ),
                   ],
+                ),
+                const SizedBox(height: 8),
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: OutlinedButton(
+                    onPressed: () {
+                      Navigator.of(context)
+                          .pushNamed(AIProviderSettingsView.routeName);
+                    },
+                    child: const Text('AI provider settings'),
+                  ),
                 ),
               ])),
           Padding(
