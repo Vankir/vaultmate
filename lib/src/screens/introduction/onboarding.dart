@@ -46,6 +46,11 @@ class _OnboardingPageState extends State<OnboardingPage> {
     );
   }
 
+  static const _pageDecoration = PageDecoration(
+    pageMargin: EdgeInsets.zero,
+    safeArea: 50,
+  );
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -58,6 +63,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
               child: IntroductionScreen(
                 pages: [
                   PageViewModel(
+                    decoration: _pageDecoration,
                     title: "Never Forget a Task",
                     bodyWidget: Column(
                       mainAxisSize: MainAxisSize.min,
@@ -96,9 +102,10 @@ class _OnboardingPageState extends State<OnboardingPage> {
                     ),
                   ),
                   PageViewModel(
-                    title: "VaultMate - Task Manager for Obsidian vault!",
+                    decoration: _pageDecoration,
+                    title: "VaultMate Widgets",
                     bodyWidget: Text(
-                        "Your Obsidian tasks and notes at your fingertips.\n\nAdd the widgets to your home screen, then open VaultMate to refresh your tasks.",
+                        "Add the Today's Tasks and Obsidian Bookmarks widgets to your home screen, then open VaultMate to refresh them.",
                         style: TextStyle(fontSize: 17),
                         textAlign: TextAlign.center),
                     image: Padding(
@@ -128,6 +135,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
                     ),
                   ),
                   PageViewModel(
+                    decoration: _pageDecoration,
                     title: "Filter Your Tasks",
                     bodyWidget: Text(
                         "Show only required tasks, view overdue tasks, or filter by tag.\n\nLong tap on a tag name to exclude tasks from the list.",
@@ -173,6 +181,10 @@ class _OnboardingPageState extends State<OnboardingPage> {
                     style: TextStyle(fontWeight: FontWeight.w600)),
                 dotsDecorator: const DotsDecorator(
                   activeColor: Color(0xFF3B82F6),
+                ),
+                controlsPadding: const EdgeInsets.symmetric(
+                  horizontal: 16.0,
+                  vertical: 8.0,
                 ),
               ),
             ),
