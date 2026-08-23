@@ -251,6 +251,8 @@ class SettingsController with ChangeNotifier {
   int _rateDialogCounter = 0;
   String? _chatGptKey;
   AIProviderConfig _aiProviderConfig = AIProviderConfig.defaultConfig;
+  bool _aiShowReasoning = true;
+  bool _aiAlwaysAllowTools = false;
   String? _saveMarker;
   bool _chooseFileEnabled = false;
   String? _lastSelectedFile;
@@ -289,6 +291,8 @@ class SettingsController with ChangeNotifier {
   int get rateDialogCounter => _rateDialogCounter;
   String? get chatGptKey => _chatGptKey;
   AIProviderConfig get aiProviderConfig => _aiProviderConfig;
+  bool get aiShowReasoning => _aiShowReasoning;
+  bool get aiAlwaysAllowTools => _aiAlwaysAllowTools;
   String? get saveMarker => _saveMarker;
   bool get chooseFileEnabled => _chooseFileEnabled;
   String? get lastSelectedFile => _lastSelectedFile;
@@ -323,6 +327,8 @@ class SettingsController with ChangeNotifier {
     if ((_aiProviderConfig.installId ?? '').isEmpty) {
       await ensureInstallId();
     }
+    _aiShowReasoning = await _settingsService.aiShowReasoning();
+    _aiAlwaysAllowTools = await _settingsService.aiAlwaysAllowTools();
     _showOverdueOnly = await _settingsService.showOverdueOnly();
     _includeDueTasksInToday = await _settingsService.includeDueTasksInToday();
     _swipeHintShownToday = await _settingsService.swipeHintShownToday();
@@ -420,6 +426,22 @@ class SettingsController with ChangeNotifier {
     _aiProviderConfig = _aiProviderConfig.copyWith(installId: newInstallId);
     await _settingsService.updateInstallId(newInstallId);
     return newInstallId;
+  }
+
+  Future<void> updateAiShowReasoning(bool value) async {
+    if (value == _aiShowReasoning) return;
+
+    _aiShowReasoning = value;
+    notifyListeners();
+    await _settingsService.updateAiShowReasoning(value);
+  }
+
+  Future<void> updateAiAlwaysAllowTools(bool value) async {
+    if (value == _aiAlwaysAllowTools) return;
+
+    _aiAlwaysAllowTools = value;
+    notifyListeners();
+    await _settingsService.updateAiAlwaysAllowTools(value);
   }
 
   Future<void> updateSaveMarker(String? newSaveMarker) async {

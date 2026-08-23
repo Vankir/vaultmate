@@ -100,6 +100,7 @@ As a monthly or yearly premium subscriber, I want to use the built-in DeepSeek a
 - **FR-016**: The system MUST continue to support the existing Gemini and ChatGPT provider options unchanged.
 - **FR-017**: Custom OpenAI-compatible providers MUST support the same task-oriented conversational capabilities (creating/finding tasks through the assistant) that the existing providers offer, falling back to plain conversational replies only when the connected model itself cannot produce the required structured response.
 - **FR-018**: This spec's scope is limited to (a) the client-side custom-provider capability (User Story 1, fully self-contained) and (b) the required behavior/interface (contract) of the managed DeepSeek server described in FR-006–FR-015: what it must accept, verify, enforce, and return. Actually coding, hosting, or operating a backend that implements that interface — any server-side implementation work — is OUT OF SCOPE for this spec and MUST be planned/tracked as separate work.
+- **FR-019**: The AI provider settings screen (introduced by this feature for FR-001/FR-005) MUST also expose the assistant's existing "show reasoning" and "always allow tools" preferences, and these MUST persist across app restarts. These preferences were previously only changeable from within the AI assistant chat screen itself and were not saved between sessions; consolidating them into AI provider settings groups all AI-related configuration in one place and fixes the non-persistence.
 
 ### Key Entities
 
@@ -128,3 +129,4 @@ As a monthly or yearly premium subscriber, I want to use the built-in DeepSeek a
 - "Any other model" is scoped to providers reachable through an OpenAI-API-compatible chat completions interface; providers that only expose a fundamentally different API shape are out of scope for this feature.
 - Sending a message to any provider (custom or built-in) remains an explicit, opt-in user action; task/vault content is only sent off-device when the user actively uses the AI assistant, consistent with the project's existing privacy behavior for Gemini/ChatGPT.
 - A user has at most one active/selected AI provider at a time; custom providers are additive to, not a replacement for, the existing Gemini/ChatGPT options.
+- "Show reasoning" and "always allow tools" (FR-019) apply globally to the assistant regardless of which provider is active — they are not per-provider settings, since they control how the chat UI/tool-confirmation flow behaves rather than anything provider-specific.

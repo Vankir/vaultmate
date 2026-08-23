@@ -77,6 +77,32 @@ class _AIProviderSettingsViewState extends State<AIProviderSettingsView> {
               'assistant, with a limited number of free uses per day.',
               style: TextStyle(color: Colors.grey),
             ),
+          const SizedBox(height: 24),
+          const Divider(),
+          const SizedBox(height: 8),
+          const Text('Assistant behavior:'),
+          SwitchListTile(
+            contentPadding: EdgeInsets.zero,
+            title: const Text('Show reasoning'),
+            subtitle: const Text(
+                'Display the assistant\'s intermediate reasoning steps, not just the final answer'),
+            value: widget.controller.aiShowReasoning,
+            onChanged: (value) {
+              widget.controller.updateAiShowReasoning(value);
+              setState(() {});
+            },
+          ),
+          SwitchListTile(
+            contentPadding: EdgeInsets.zero,
+            title: const Text('Always allow tools'),
+            subtitle: const Text(
+                'Skip the confirmation prompt before the assistant performs an action (e.g. editing a file)'),
+            value: widget.controller.aiAlwaysAllowTools,
+            onChanged: (value) {
+              widget.controller.updateAiAlwaysAllowTools(value);
+              setState(() {});
+            },
+          ),
         ],
       ),
     );

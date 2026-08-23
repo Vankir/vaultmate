@@ -40,8 +40,17 @@ class AIAssistantCubit extends Cubit<AIAssistantState> {
         super(AIAssistantMessages.init()) {
     //_historyStorage = HistoryStorage('${_taskManager.vaultPath}/obsi_ai.md');
     _initializeAIAssistant();
+    _syncBehaviorSettings();
     _registerTools();
     _initializeConversation();
+  }
+
+  /// Reads the persisted "show reasoning"/"always allow tools" settings
+  /// (configured in AI provider settings) into the current message state.
+  void _syncBehaviorSettings() {
+    final settings = SettingsController.getInstance();
+    lastMessages.showReasoning = settings.aiShowReasoning;
+    lastMessages.alwaysAllowTools = settings.aiAlwaysAllowTools;
   }
 
   void _initializeConversation() async {
@@ -118,10 +127,11 @@ class AIAssistantCubit extends Cubit<AIAssistantState> {
 
   Future<void> sendMessage(String message) async {
     lastMessages.typingUser = AIAssistantMessages.aiUser;
-    // Re-read provider settings on every message so edits made in AI
-    // provider settings take effect on the next message, without an app
+    // Re-read provider/behavior settings on every message so edits made in
+    // AI provider settings take effect on the next message, without an app
     // restart (spec FR-005).
     _initializeAIAssistant();
+    _syncBehaviorSettings();
 
     if (_needsWelcomeKeyEntry()) {
       SettingsController.getInstance().updateChatGptKey(message);
@@ -244,18 +254,6 @@ class AIAssistantCubit extends Cubit<AIAssistantState> {
         responseType == "reasoning" ? AIAssistantMessages.aiUser : null;
     emit(assistantMessage);
     await _historyStorage?.appendMessageToLog(message, false);
-  }
-
-  void setShowReasoning(bool value) {
-    lastMessages = AIAssistantMessages(lastMessages);
-    lastMessages.showReasoning = value;
-    emit(lastMessages);
-  }
-
-  void setAlwaysAllowTools(bool value) {
-    lastMessages = AIAssistantMessages(lastMessages);
-    lastMessages.alwaysAllowTools = value;
-    emit(lastMessages);
   }
 
   Future<void> confirmToolAction(int actionId, bool allowed) async {

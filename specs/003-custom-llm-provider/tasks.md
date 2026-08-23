@@ -232,6 +232,21 @@ US2 — needs a real backend to validate against.
   unhelpful error. Fixed by (1) setting `maxTokens: 8192` on every request, (2) instructing the model to
   keep `"thought"` to 1–2 sentences, and (3) detecting the truncation case specifically for a clearer
   error message. Covered by two new tests in `openai_compatible_assistant_test.dart`.
+- **Stale default Gemini model**: the default Gemini model, `gemini-2.0-flash-exp`, was retired by
+  Google on 2026-06-01 — every default-provider request would have failed regardless of setup. Updated
+  `AIProviderType.gemini.defaultModel` to `gemini-3.5-flash` (no announced shutdown as of this writing).
+  Worth periodically re-checking against Google's changelog.
+
+## Post-implementation scope addition (user request)
+
+- [X] **FR-019**: Moved the pre-existing "show reasoning" / "always allow tools" toggles out of the AI
+  assistant chat screen (`lib/src/screens/ai_assistant/ai_assistant.dart`) and into AI provider settings
+  (`ai_provider_settings_view.dart`), and made them persist via `SettingsService`/`SettingsController`
+  (new keys `ai_show_reasoning`/`ai_always_allow_tools`) instead of resetting every session.
+  `AIAssistantCubit._syncBehaviorSettings()` re-reads them into `lastMessages` at startup and on every
+  `sendMessage()`, matching the existing "takes effect on next message" pattern used for provider
+  config (FR-005). The now-dead `AIAssistantCubit.setShowReasoning`/`setAlwaysAllowTools` methods were
+  removed. `flutter test`: 270 pass, `dart analyze`: clean.
 
 ## Outstanding follow-ups (not blocking, tracked here for visibility)
 

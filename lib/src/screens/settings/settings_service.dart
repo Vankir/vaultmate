@@ -52,6 +52,8 @@ class SettingsService {
   static const String _customProviderApiKeyKey = "custom_provider_api_key";
   static const String _customProviderModelKey = "custom_provider_model";
   static const String _installIdKey = "install_id";
+  static const String _aiShowReasoningKey = "ai_show_reasoning";
+  static const String _aiAlwaysAllowToolsKey = "ai_always_allow_tools";
 
   Future<ThemeMode> themeMode() async => ThemeMode.system;
 
@@ -425,6 +427,26 @@ class SettingsService {
   Future<void> updateInstallId(String installId) async {
     var sharedPreferences = await SharedPreferences.getInstance();
     await sharedPreferences.setString(_installIdKey, installId);
+  }
+
+  Future<bool> aiShowReasoning() async {
+    var sharedPreferences = await SharedPreferences.getInstance();
+    return sharedPreferences.getBool(_aiShowReasoningKey) ?? true;
+  }
+
+  Future<void> updateAiShowReasoning(bool value) async {
+    var sharedPreferences = await SharedPreferences.getInstance();
+    await sharedPreferences.setBool(_aiShowReasoningKey, value);
+  }
+
+  Future<bool> aiAlwaysAllowTools() async {
+    var sharedPreferences = await SharedPreferences.getInstance();
+    return sharedPreferences.getBool(_aiAlwaysAllowToolsKey) ?? false;
+  }
+
+  Future<void> updateAiAlwaysAllowTools(bool value) async {
+    var sharedPreferences = await SharedPreferences.getInstance();
+    await sharedPreferences.setBool(_aiAlwaysAllowToolsKey, value);
   }
 
   Future<String?> saveMarker() async {

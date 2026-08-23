@@ -40,4 +40,7 @@
   unlimited managed DeepSeek access, and confirmed that building/coding the managed DeepSeek backend
   is out of scope for this spec (FR-018) — only its required server interface is specified here.
   All checklist items re-validated against the updated spec and still pass.
+- 2026-08-23 (post-implementation): added FR-019 — the AI provider settings screen also consolidates
+  and persists the pre-existing "show reasoning"/"always allow tools" preferences (previously
+  chat-screen-only, session-only). All checklist items re-validated and still pass.
 - All items pass.
