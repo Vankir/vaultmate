@@ -1,7 +1,7 @@
 name: obsi
 description: VaultMate - task manager for Obsidian vault.
 publish_to: none
-version: 1.7.2+115
+version: 1.8.0+116
 environment:
   sdk: '>=3.0.0'
 dependencies:
