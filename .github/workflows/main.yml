@@ -36,8 +36,12 @@ jobs:
 
   build_android:
     name: "Build Android release"
-    # Only build on main or version tags like v1.2.3, or when manually triggered
-    if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch'
+    # Only build on version tags like v1.2.3, or when manually triggered.
+    # A release push lands the version bump on main *and* tags that same
+    # commit, so also building on plain main pushes would build the
+    # identical commit twice for no benefit (the release job below only
+    # ever runs off the tag anyway).
+    if: startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
 
     steps:
