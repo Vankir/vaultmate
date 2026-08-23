@@ -16,6 +16,16 @@ class TaskCard extends Card {
   final IconData? rightButtonIcon;
   final String? hightlightedText;
 
+  /// How many ancestor tasks lie between this task and the top level of its
+  /// note (see Task.depth). 0 (the default) renders exactly as before this
+  /// field existed - purely visual, callers opt in per view (see
+  /// _createFileViews/_createTaskCard in inbox_tasks.dart).
+  final int depth;
+
+  /// Deeper nesting than this renders at the same indentation as this cap,
+  /// rather than continuing to shift further right (FR-006).
+  static const int maxVisualDepth = 5;
+
   const TaskCard(this.task,
       {super.key,
       this.hightlightedText,
@@ -23,10 +33,44 @@ class TaskCard extends Card {
       this.rightButtonPressed,
       this.editTaskPressed,
       this.startWorkflowPressed,
-      this.rightButtonIcon});
+      this.rightButtonIcon,
+      this.depth = 0});
 
   @override
   Widget build(BuildContext context) {
+    final cardContent = _buildCardContent(context);
+    if (depth <= 0) {
+      return cardContent;
+    }
+
+    final effectiveDepth = depth.clamp(0, maxVisualDepth);
+    return Padding(
+      key: const Key('task_card_depth_indent'),
+      padding: EdgeInsets.only(left: 12.0 * effectiveDepth),
+      // IntrinsicHeight gives the Row below a concrete height to stretch
+      // against. Without it, a ListView item's incoming height constraint
+      // is unbounded, and Row(crossAxisAlignment: stretch) can't resolve
+      // "stretch to fill" against an unbounded height - that's what threw
+      // the "RenderBox was not laid out: 'hasSize'" error.
+      child: IntrinsicHeight(
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            for (var level = 0; level < effectiveDepth; level++)
+              Container(
+                key: Key('task_card_depth_marker_$level'),
+                width: 2,
+                margin: const EdgeInsets.only(right: 4),
+                color: Theme.of(context).colorScheme.outlineVariant,
+              ),
+            Expanded(child: cardContent),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCardContent(BuildContext context) {
     var defaultTextStyle = Theme.of(context).textTheme.bodyMedium!.copyWith(
           color: Theme.of(context).colorScheme.onSurface,
         );

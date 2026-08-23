@@ -556,6 +556,120 @@ some text could be here
     });
   });
 
+  group('nested task actions do not cascade (FR-008, FR-009)', () {
+    test('marking a child task done does not change its parent', () async {
+      var storage = InMemoryTasksFileStorage();
+      await storage
+          .getFile('/test.md')
+          .writeAsString('- [ ] parent task\n  - [ ] child task\n');
+      var manager = TaskManager(storage);
+      await manager.loadTasks(p.dirname('/test.md'));
+
+      var parent =
+          manager.tasks.firstWhere((t) => t.description == 'parent task');
+      var child =
+          manager.tasks.firstWhere((t) => t.description == 'child task');
+      expect(child.depth, equals(1));
+      expect(child.parentTaskId, equals(parent.taskSource!.id));
+
+      await manager.setStatus(child, TaskStatus.done);
+
+      expect(child.status, equals(TaskStatus.done));
+      expect(parent.status, equals(TaskStatus.todo));
+
+      await manager.loadTasks(p.dirname('/test.md'));
+      expect(
+          manager.tasks
+              .firstWhere((t) => t.description == 'child task')
+              .status,
+          equals(TaskStatus.done));
+      expect(
+          manager.tasks
+              .firstWhere((t) => t.description == 'parent task')
+              .status,
+          equals(TaskStatus.todo));
+    });
+
+    test('marking a parent task done does not change its child', () async {
+      var storage = InMemoryTasksFileStorage();
+      await storage
+          .getFile('/test.md')
+          .writeAsString('- [ ] parent task\n  - [ ] child task\n');
+      var manager = TaskManager(storage);
+      await manager.loadTasks(p.dirname('/test.md'));
+
+      var parent =
+          manager.tasks.firstWhere((t) => t.description == 'parent task');
+      var child =
+          manager.tasks.firstWhere((t) => t.description == 'child task');
+
+      await manager.setStatus(parent, TaskStatus.done);
+
+      expect(parent.status, equals(TaskStatus.done));
+      expect(child.status, equals(TaskStatus.todo));
+
+      await manager.loadTasks(p.dirname('/test.md'));
+      expect(
+          manager.tasks
+              .firstWhere((t) => t.description == 'parent task')
+              .status,
+          equals(TaskStatus.done));
+      expect(
+          manager.tasks
+              .firstWhere((t) => t.description == 'child task')
+              .status,
+          equals(TaskStatus.todo));
+    });
+
+    test('deleting a parent task does not remove its children', () async {
+      var storage = InMemoryTasksFileStorage();
+      await storage
+          .getFile('/test.md')
+          .writeAsString('- [ ] parent task\n  - [ ] child task\n');
+      var manager = TaskManager(storage);
+      await manager.loadTasks(p.dirname('/test.md'));
+
+      var parent =
+          manager.tasks.firstWhere((t) => t.description == 'parent task');
+      await manager.deleteTask(parent);
+
+      var content = await storage.getFile('/test.md').readAsString();
+      expect(content.contains('parent task'), isFalse);
+      expect(content, contains('child task'));
+
+      await manager.loadTasks(p.dirname('/test.md'));
+      expect(manager.tasks.length, equals(1));
+      expect(manager.tasks[0].description, equals('child task'));
+      // With its parent line gone, the child is now the first (and only)
+      // task in the file on reparse - no preceding task to link to, so it
+      // resolves to depth 0, matching spec.md's "no preceding task" edge
+      // case (same rule as FR-011's "parent absent from view").
+      expect(manager.tasks[0].depth, equals(0));
+    });
+
+    test('deleting a child task does not remove its parent', () async {
+      var storage = InMemoryTasksFileStorage();
+      await storage
+          .getFile('/test.md')
+          .writeAsString('- [ ] parent task\n  - [ ] child task\n');
+      var manager = TaskManager(storage);
+      await manager.loadTasks(p.dirname('/test.md'));
+
+      var child =
+          manager.tasks.firstWhere((t) => t.description == 'child task');
+      await manager.deleteTask(child);
+
+      var content = await storage.getFile('/test.md').readAsString();
+      expect(content.contains('child task'), isFalse);
+      expect(content, contains('parent task'));
+
+      await manager.loadTasks(p.dirname('/test.md'));
+      expect(manager.tasks.length, equals(1));
+      expect(manager.tasks[0].description, equals('parent task'));
+      expect(manager.tasks[0].depth, equals(0));
+    });
+  });
+
   group('calculateNextOccurrence', () {
     test('every day', () {
       final result = RecurrentTask.calculateNextOccurrence(

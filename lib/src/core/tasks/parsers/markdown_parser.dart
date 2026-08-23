@@ -53,19 +53,37 @@ class MarkdownParser extends Parser {
     return content;
   }
 
+  /// Counts the width of the whitespace between [start] and [end] (exclusive),
+  /// treating a space as 1 column and a tab as 4 columns, so indentation
+  /// that mixes tabs and spaces still compares consistently (see
+  /// research.md Decision 3).
+  int _indentWidth(String content, int start, int end) {
+    int width = 0;
+    for (int j = start; j < end; j++) {
+      width += content[j] == '\t' ? 4 : 1;
+    }
+    return width;
+  }
+
   /// Parses tasks directly from string content character by character
   /// Looks for task patterns: - [, * [, + [ followed by status and content
   List<Task> _parseTasksByPattern(String content,
       {int fileNumber = 0, String fileName = "", String taskFilter = ""}) {
     List<Task> tasks = [];
     int i = 0;
+    // Tracks the nesting stack for this file only: a task's parent is the
+    // nearest preceding task (in source order) with a strictly lower
+    // indentWidth. See contracts/depth_computation_contract.md.
+    final List<(int, Task)> depthStack = [];
 
     while (i < content.length) {
       //print("Processing offset $i");
       String taskContent = '';
       TaskStatus taskStatus = TaskStatus.todo;
+      int lineStart = i;
       i = _skipSpaces(i, content);
       int taskOffset = i;
+      int indentWidth = _indentWidth(content, lineStart, taskOffset);
 
       // Check for task marker (-, *, +) with bounds checking
       if (i < content.length &&
@@ -123,14 +141,29 @@ class MarkdownParser extends Parser {
             var contentWithoutFilter =
                 _removeTaskFilter(taskContent, taskFilter);
 
+            // Resolve this task's depth/parent from the stack before the
+            // filter check below, so a task excluded by taskFilter still
+            // correctly anchors the stack for any of its children that do
+            // pass the filter - a child's depth must not depend on whether
+            // its ancestors happen to also match the filter.
+            while (depthStack.isNotEmpty && depthStack.last.$1 >= indentWidth) {
+              depthStack.removeLast();
+            }
+            final newTask = TaskParser().build(contentWithoutFilter,
+                status: taskStatus,
+                taskSource: TaskSource(
+                    fileNumber, fileName, taskOffset, taskLength));
+            if (depthStack.isNotEmpty) {
+              newTask.depth = depthStack.last.$2.depth + 1;
+              newTask.parentTaskId = depthStack.last.$2.taskSource!.id;
+            }
+            depthStack.add((indentWidth, newTask));
+
             // if taskFilter is empty or task contains filter then add task
             if (taskFilter.isEmpty ||
                 (taskFilter.isNotEmpty &&
                     contentWithoutFilter.length < taskContent.length)) {
-              tasks.add(TaskParser().build(contentWithoutFilter,
-                  status: taskStatus,
-                  taskSource: TaskSource(
-                      fileNumber, fileName, taskOffset, taskLength)));
+              tasks.add(newTask);
               //print("Added task: ${tasks.last}");
             }
           }

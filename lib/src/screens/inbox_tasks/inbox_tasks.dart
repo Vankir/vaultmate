@@ -723,7 +723,11 @@ class InboxTasks extends StatelessWidget with WidgetsBindingObserver {
     var hintApplied = false;
 
     for (var task in tasks) {
-      final card = _createTaskCard(context, task, highlightedText);
+      // Only the file-grouped view renders nested indentation (FR-010) -
+      // list view and calendar view's _createTaskCard call sites
+      // deliberately don't pass depth, so they keep rendering flat.
+      final card =
+          _createTaskCard(context, task, highlightedText, depth: task.depth);
       Widget rowWidget = _wrapTaskCardWithSwipe(context, card);
       if (!hintApplied && !_inboxTaskCubit.swipeHintShown) {
         hintApplied = true;
@@ -750,8 +754,11 @@ class InboxTasks extends StatelessWidget with WidgetsBindingObserver {
   }
 
   TaskCard _createTaskCard(
-      BuildContext context, Task task, String highlightedText) {
-    return TaskCard(task, hightlightedText: highlightedText,
+      BuildContext context, Task task, String highlightedText,
+      {int depth = 0}) {
+    return TaskCard(task,
+        hightlightedText: highlightedText,
+        depth: depth,
         taskDonePressed: (bool? res) {
       if (res != null) {
         _inboxTaskCubit.changeTaskStatus(

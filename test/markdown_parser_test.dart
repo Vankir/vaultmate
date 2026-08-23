@@ -429,5 +429,138 @@ Final text line''';
             'Emoji wins [priority:: highest] [repeat:: every day]');
       });
     });
+
+    group('Nested Task Depth', () {
+      test('single child task is depth 1 under its parent', () {
+        const content = '''- [ ] Cookies
+  - [ ] Milk''';
+
+        final tasks = Parser.parseTasks('test.md', content);
+
+        expect(tasks.length, 2);
+        expect(tasks[0].description, 'Cookies');
+        expect(tasks[0].depth, 0);
+        expect(tasks[0].parentTaskId, isNull);
+        expect(tasks[1].description, 'Milk');
+        expect(tasks[1].depth, 1);
+        expect(tasks[1].parentTaskId, tasks[0].taskSource!.id);
+      });
+
+      test('multiple children of one parent are all depth 1, in source order',
+          () {
+        const content = '''- [ ] Cookies
+  - [ ] Milk
+  - [ ] Chocolate Chips
+  - [ ] Sugar
+- [ ] Cheese''';
+
+        final tasks = Parser.parseTasks('test.md', content);
+
+        expect(tasks.length, 5);
+        expect(tasks[0].description, 'Cookies');
+        expect(tasks[0].depth, 0);
+        for (final child in tasks.sublist(1, 4)) {
+          expect(child.depth, 1);
+          expect(child.parentTaskId, tasks[0].taskSource!.id);
+        }
+        expect(tasks[1].description, 'Milk');
+        expect(tasks[2].description, 'Chocolate Chips');
+        expect(tasks[3].description, 'Sugar');
+        expect(tasks[4].description, 'Cheese');
+        expect(tasks[4].depth, 0);
+        expect(tasks[4].parentTaskId, isNull);
+      });
+
+      test('three-level nesting resolves to depths 0, 1, 2', () {
+        const content = '''- [ ] Groceries
+  - [ ] Cookies
+    - [ ] Milk''';
+
+        final tasks = Parser.parseTasks('test.md', content);
+
+        expect(tasks.length, 3);
+        expect(tasks[0].depth, 0);
+        expect(tasks[1].depth, 1);
+        expect(tasks[1].parentTaskId, tasks[0].taskSource!.id);
+        expect(tasks[2].depth, 2);
+        expect(tasks[2].parentTaskId, tasks[1].taskSource!.id);
+      });
+
+      test(
+          'a task indented as if it were a grandchild, with no depth-1 task '
+          'above it, resolves to depth 1 (its nearest actual parent), not 2',
+          () {
+        const content = '''- [ ] Top level
+    - [ ] Skips visually to grandchild indentation''';
+
+        final tasks = Parser.parseTasks('test.md', content);
+
+        expect(tasks.length, 2);
+        expect(tasks[0].depth, 0);
+        expect(tasks[1].depth, 1);
+        expect(tasks[1].parentTaskId, tasks[0].taskSource!.id);
+      });
+
+      test(
+          'an indented task with no preceding task at all has no parent and '
+          'is depth 0', () {
+        const content = '''    - [ ] Indented, but first line in the file
+- [ ] Then a top-level task''';
+
+        final tasks = Parser.parseTasks('test.md', content);
+
+        expect(tasks.length, 2);
+        expect(tasks[0].depth, 0);
+        expect(tasks[0].parentTaskId, isNull);
+        expect(tasks[1].depth, 0);
+        expect(tasks[1].parentTaskId, isNull);
+      });
+
+      test('a non-task line between parent and child does not break the '
+          'relationship', () {
+        const content = '''- [ ] Parent
+  Some plain note text, not a checkbox
+  - [ ] Child''';
+
+        final tasks = Parser.parseTasks('test.md', content);
+
+        expect(tasks.length, 2);
+        expect(tasks[0].description, 'Parent');
+        expect(tasks[1].description, 'Child');
+        expect(tasks[1].depth, 1);
+        expect(tasks[1].parentTaskId, tasks[0].taskSource!.id);
+      });
+
+      test('mixed tabs and spaces still compare consistently', () {
+        // A tab counts as 4 columns (research.md Decision 3), so a
+        // tab-indented child (4 columns) is deeper than its 2-space-indented
+        // parent, and a further 2-space-indented grandchild (6 columns) is
+        // deeper still than the tab-indented child.
+        const content = '- [ ] Parent\n\t- [ ] Tab child\n\t  - [ ] Space grandchild';
+
+        final tasks = Parser.parseTasks('test.md', content);
+
+        expect(tasks.length, 3);
+        expect(tasks[0].depth, 0);
+        expect(tasks[1].depth, 1);
+        expect(tasks[1].parentTaskId, tasks[0].taskSource!.id);
+        expect(tasks[2].depth, 2);
+        expect(tasks[2].parentTaskId, tasks[1].taskSource!.id);
+      });
+
+      test('a note with no indentation leaves every task at depth 0', () {
+        const content = '''- [ ] First task
+* [x] Second task
++ [ ] Third task''';
+
+        final tasks = Parser.parseTasks('test.md', content);
+
+        expect(tasks.length, 3);
+        for (final task in tasks) {
+          expect(task.depth, 0);
+          expect(task.parentTaskId, isNull);
+        }
+      });
+    });
   });
 }

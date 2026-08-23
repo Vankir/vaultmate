@@ -20,6 +20,17 @@ class Task implements Comparable<Task> {
   TaskSource? taskSource;
   String? _recurrenceRule = "";
 
+  /// How many ancestor tasks lie between this task and the top level of its
+  /// note. 0 means top-level (no parent). Derived at parse time from the
+  /// task's indentation relative to other tasks in the same file; never
+  /// entered by the user and never round-tripped to markdown, so it is
+  /// intentionally excluded from equals()/update()/toJsonMap() below.
+  int depth = 0;
+
+  /// The TaskSource.id of this task's parent (see [depth]), or null if
+  /// depth == 0. Same derived, non-persisted nature as [depth].
+  int? parentTaskId;
+
   bool get changed => _changed;
 
   String? get description => _description;
