@@ -26,13 +26,9 @@ dependencies:
   flutter_local_notifications: ^19.2.1
   timezone: ^0.10.0
   url_launcher: ^6.3.1
-  #experiments with gpt
   openai_dart: ^0.4.0
-  flutter_gemini: ^3.0.0
-  google_generative_ai: ^0.4.6
   flutter_chat_ui: ^1.6.15
   bubble: ^1.2.1
-  #end experiments
   package_info_plus: ^8.3.1
   crypto: ^3.0.6
   home_widget: ^0.8.0
@@ -44,6 +40,7 @@ dev_dependencies:
     sdk: flutter
   flutter_lints: ^6.0.0
   mockito: ^5.4.4
+  build_runner: ^2.4.0
   flutter_launcher_icons: ^0.14.4
 flutter:
   uses-material-design: true

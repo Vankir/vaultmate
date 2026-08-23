@@ -21,10 +21,9 @@ class WelcomeScreen extends StatelessWidget {
     ),
     _Feature(
       icon: Icons.checklist_outlined,
-      title: 'Your Tasks, Everywhere',
-      description: 'Your Obsidian tasks and notes at your fingertips. '
-          'Add the widgets to your home screen, then open VaultMate to '
-          'refresh your tasks.',
+      title: 'VaultMate Widgets',
+      description: 'Add the Today\'s Tasks and Obsidian Bookmarks widgets '
+          'to your home screen, then open VaultMate to refresh them.',
     ),
     _Feature(
       icon: Icons.filter_alt_outlined,

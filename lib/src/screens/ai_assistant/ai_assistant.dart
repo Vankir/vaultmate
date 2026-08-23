@@ -32,43 +32,6 @@ class AIAssistant extends StatelessWidget {
               if (state is AIAssistantMessages) {
                 return Column(
                   children: [
-                    Padding(
-                      padding: const EdgeInsets.only(top: 8, left: 8, right: 8),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.end,
-                        children: [
-                          Expanded(
-                            child: CheckboxListTile(
-                              contentPadding: EdgeInsets.zero,
-                              dense: true,
-                              controlAffinity: ListTileControlAffinity.leading,
-                              title: const Text('Show reasoning'),
-                              value: state.showReasoning,
-                              onChanged: (value) {
-                                if (value != null) {
-                                  _aiAssistantCubit.setShowReasoning(value);
-                                }
-                              },
-                            ),
-                          ),
-                          Expanded(
-                            child: CheckboxListTile(
-                              contentPadding: EdgeInsets.zero,
-                              dense: true,
-                              controlAffinity: ListTileControlAffinity.leading,
-                              title: const Text('Always allow tools'),
-                              value: state.alwaysAllowTools,
-                              onChanged: (value) {
-                                if (value != null) {
-                                  _aiAssistantCubit.setAlwaysAllowTools(value);
-                                }
-                              },
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const Divider(height: 1),
                     Expanded(
                       child: Chat(
                         bubbleBuilder: (child,

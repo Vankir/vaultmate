@@ -25,7 +25,7 @@ void main() {
     await tester.pumpWidget(wrap(cubit));
 
     expect(find.text('Never Forget a Task'), findsOneWidget);
-    expect(find.text('Your Tasks, Everywhere'), findsOneWidget);
+    expect(find.text('VaultMate Widgets'), findsOneWidget);
     expect(find.text('Filter Your Tasks'), findsOneWidget);
 
     // No PageView anywhere: structurally, there is no swipe-based

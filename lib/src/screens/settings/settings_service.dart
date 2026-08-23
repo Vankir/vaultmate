@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:obsi/src/core/ai_assistant/ai_provider_config.dart';
 import 'package:obsi/src/screens/notes_widget_config/cubit/notes_widget_config_cubit.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -47,6 +48,13 @@ class SettingsService {
       "background_monitoring_enabled";
   static const String _taskFormatPreferenceKey = "task_format_preference";
   static const String _lastTaskNoteFolderKey = "last_task_note_folder";
+  static const String _aiProviderTypeKey = "ai_provider_type";
+  static const String _customProviderBaseUrlKey = "custom_provider_base_url";
+  static const String _customProviderApiKeyKey = "custom_provider_api_key";
+  static const String _customProviderModelKey = "custom_provider_model";
+  static const String _installIdKey = "install_id";
+  static const String _aiShowReasoningKey = "ai_show_reasoning";
+  static const String _aiAlwaysAllowToolsKey = "ai_always_allow_tools";
 
   Future<ThemeMode> themeMode() async => ThemeMode.system;
 
@@ -366,6 +374,86 @@ class SettingsService {
     } else {
       sharedPreferences.setString(_chatGptKeyKey, chatGptKey);
     }
+  }
+
+  Future<AIProviderConfig> aiProviderConfig() async {
+    var sharedPreferences = await SharedPreferences.getInstance();
+    final providerType = AIProviderType.fromName(
+        sharedPreferences.getString(_aiProviderTypeKey));
+    // Gemini/ChatGPT continue to use the pre-existing chatGptKey field
+    // (FR-016); only the new customOpenAI provider uses the new key field.
+    final apiKey = providerType == AIProviderType.customOpenAI
+        ? sharedPreferences.getString(_customProviderApiKeyKey)
+        : sharedPreferences.getString(_chatGptKeyKey);
+    return AIProviderConfig(
+      providerType: providerType,
+      apiKey: apiKey,
+      baseUrl: sharedPreferences.getString(_customProviderBaseUrlKey),
+      model: sharedPreferences.getString(_customProviderModelKey),
+      installId: sharedPreferences.getString(_installIdKey),
+    );
+  }
+
+  Future<void> updateAIProviderType(AIProviderType providerType) async {
+    var sharedPreferences = await SharedPreferences.getInstance();
+    await sharedPreferences.setString(_aiProviderTypeKey, providerType.name);
+  }
+
+  Future<void> updateCustomProviderBaseUrl(String? baseUrl) async {
+    var sharedPreferences = await SharedPreferences.getInstance();
+    if (baseUrl == null || baseUrl.isEmpty) {
+      await sharedPreferences.remove(_customProviderBaseUrlKey);
+    } else {
+      await sharedPreferences.setString(_customProviderBaseUrlKey, baseUrl);
+    }
+  }
+
+  Future<void> updateCustomProviderApiKey(String? apiKey) async {
+    var sharedPreferences = await SharedPreferences.getInstance();
+    if (apiKey == null || apiKey.isEmpty) {
+      await sharedPreferences.remove(_customProviderApiKeyKey);
+    } else {
+      await sharedPreferences.setString(_customProviderApiKeyKey, apiKey);
+    }
+  }
+
+  Future<void> updateCustomProviderModel(String? model) async {
+    var sharedPreferences = await SharedPreferences.getInstance();
+    if (model == null || model.isEmpty) {
+      await sharedPreferences.remove(_customProviderModelKey);
+    } else {
+      await sharedPreferences.setString(_customProviderModelKey, model);
+    }
+  }
+
+  Future<String?> installId() async {
+    var sharedPreferences = await SharedPreferences.getInstance();
+    return sharedPreferences.getString(_installIdKey);
+  }
+
+  Future<void> updateInstallId(String installId) async {
+    var sharedPreferences = await SharedPreferences.getInstance();
+    await sharedPreferences.setString(_installIdKey, installId);
+  }
+
+  Future<bool> aiShowReasoning() async {
+    var sharedPreferences = await SharedPreferences.getInstance();
+    return sharedPreferences.getBool(_aiShowReasoningKey) ?? true;
+  }
+
+  Future<void> updateAiShowReasoning(bool value) async {
+    var sharedPreferences = await SharedPreferences.getInstance();
+    await sharedPreferences.setBool(_aiShowReasoningKey, value);
+  }
+
+  Future<bool> aiAlwaysAllowTools() async {
+    var sharedPreferences = await SharedPreferences.getInstance();
+    return sharedPreferences.getBool(_aiAlwaysAllowToolsKey) ?? false;
+  }
+
+  Future<void> updateAiAlwaysAllowTools(bool value) async {
+    var sharedPreferences = await SharedPreferences.getInstance();
+    await sharedPreferences.setBool(_aiAlwaysAllowToolsKey, value);
   }
 
   Future<String?> saveMarker() async {
