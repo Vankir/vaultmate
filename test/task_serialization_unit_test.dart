@@ -259,4 +259,31 @@ as some other text
       expect(tasks.length, equals(updatedTasks.length));
     });
   });
+
+  group('depth/parentTaskId are excluded from equality and serialization', () {
+    test('Task.equals ignores depth and parentTaskId', () {
+      var created = DateTime(2024, 1, 1);
+      var a = Task('same content', status: TaskStatus.todo, created: created);
+      var b = Task('same content', status: TaskStatus.todo, created: created);
+      a.depth = 0;
+      a.parentTaskId = null;
+      b.depth = 2;
+      b.parentTaskId = 12345;
+
+      // A hierarchy difference alone must never look like a content change
+      // that needs saving.
+      expect(a.equals(b), isTrue);
+    });
+
+    test('Task.toJsonMap never includes depth or parentTaskId', () {
+      var task = Task('a task', status: TaskStatus.todo);
+      task.depth = 3;
+      task.parentTaskId = 999;
+
+      var json = task.toJsonMap();
+
+      expect(json.containsKey('depth'), isFalse);
+      expect(json.containsKey('parentTaskId'), isFalse);
+    });
+  });
 }
