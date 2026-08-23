@@ -103,3 +103,75 @@ previous task's filename", relying on same-file tasks being contiguous and in so
 sorting/grouping change is needed anywhere to satisfy FR-005 (parent and descendants stay
 adjacent, in source order) — it is already true today for the existing flat rendering and remains
 true unchanged once each task also carries a `depth`.
+
+## Increment 2 (FR-012–FR-016, User Story 4): Collapse/Expand
+
+### Decision 7: Hiding descendants reuses `depth` directly — no tree structure needed
+
+**Decision**: While `_createFileViews` iterates a file's tasks (already in source order, each
+already carrying `depth`), track a single `int? suppressBelowDepth` cursor. When a rendered task
+is collapsed and has children, set `suppressBelowDepth = task.depth`; for each subsequent task,
+skip rendering it entirely while `task.depth > suppressBelowDepth`, and clear the cursor (then
+re-evaluate that task normally) as soon as a task's depth drops back to `suppressBelowDepth` or
+below.
+
+**Rationale**: This is the same "flat list, depth-tagged, in source order" property Increment 1
+already established and verified (`research.md` Decision 6). Collapsing one task's subtree is
+exactly "skip every following task whose depth is greater than the collapsed task's depth, until
+we return to that depth or shallower" — a single forward pass, no parent-pointer chasing, no
+tree/graph structure to build or keep in sync.
+
+**Alternatives considered**: Building an explicit tree (nodes with `List<Task> children`) to
+recurse over. Rejected — it would require maintaining a second data structure in sync with the
+already-correct flat+depth representation, for no benefit: the suppress-cursor approach answers
+the exact same question ("is this task inside a currently-collapsed subtree?") in O(1) extra state
+per file, with the existing iteration order already doing the work.
+
+### Decision 8: `hasChildren` via same-file-bounded lookahead
+
+**Decision**: A task has children if the next task in the overall (already file-contiguous,
+already depth-tagged) list belongs to the same file and has a strictly greater depth:
+`i + 1 < tasks.length && tasks[i+1].taskSource?.fileName == task.taskSource?.fileName && tasks[i+1].depth > task.depth`.
+
+**Rationale**: Cheapest possible check given the existing iteration; avoids a second full pass or
+a parent-id reverse-index. The same-file guard specifically prevents a false positive at a file
+boundary, where the next task in the flat list belongs to a different file and could coincidentally
+have a numerically larger `depth` with no actual parent/child relationship to the current task.
+
+### Decision 9: Collapse state lives on `InboxTasksCubit`, not `SettingsController`
+
+**Decision**: `Set<int> _collapsedTaskIds` (of `TaskSource.id` values) is a plain in-memory field
+on `InboxTasksCubit`. It is explicitly cleared inside `refreshTasks()` — not inside
+`tasksChangedListener()`.
+
+**Rationale**: `refreshTasks()` is the method that actually calls `TaskManager.loadTasks(...)`
+(a full re-parse from disk) — it is what runs on pull-to-refresh and on app-resume-from-background
+(`InboxTasks.didChangeAppLifecycleState`), matching the clarification's "app restart, manual
+refresh" reset triggers exactly. `tasksChangedListener()`, by contrast, fires on *every* task
+mutation (marking done, swipe reschedule/delete, an AI-assistant edit) via
+`TaskManager`'s `ChangeNotifier` — it only re-filters the already-in-memory task list via
+`filterTasks()`, it does not reload from disk. Clearing collapse state there would reset a user's
+collapsed groups every time *any* task anywhere changed status, which is not what was asked for and
+would make the feature unusable. Routing collapse state through `SettingsController`/
+`SettingsService` (this app's only existing persistence mechanism) was rejected outright per the
+clarification: state must NOT survive a reload, so there is nothing to persist.
+
+**Scope note on "reopening the screen"**: the clarification's third reset trigger doesn't map to an
+existing hook — `InboxTasksCubit` is a long-lived instance for the lifetime of its tab (Today or
+Inbox), and switching tabs and back does not currently reload data at all in this app (no
+`initState`-equivalent reload exists for `InboxTasks`, a `StatelessWidget`). Interpreted as: this
+feature reuses whatever reload behavior already exists (pull-to-refresh, app-resume) rather than
+inventing a new "reload on tab revisit" behavior that nothing else in the app has today.
+
+### Decision 10: Collapse-all/expand-all is scoped per file, computed from the in-memory task list
+
+**Decision**: `collapseAllInFile(String fileName)` marks every task in `_tasks` whose
+`taskSource?.fileName == fileName` and which has at least one child (same lookahead logic as
+Decision 8, generalized to scan for *any* task with `parentTaskId == candidate.taskSource?.id`)
+as collapsed; `expandAllInFile(String fileName)` removes every collapsed id belonging to a task in
+that file.
+
+**Rationale**: Collapsing every top-level (and, transitively, nested) collapsible task in a file
+is sufficient to hide every descendant in that file, because Decision 7's suppress-cursor already
+hides an entire subtree from a single collapsed ancestor — there is no need to individually mark
+every nested descendant as "collapsed" too, only every task that itself has children.

@@ -13,6 +13,16 @@ back to the note's markdown and never part of the task's persisted/serialized id
 is no new markdown syntax, no round-trip risk, and no change to any existing save/delete/swipe
 action, which continue to operate on exactly the task line they always did.
 
+**Increment 2 (FR-012–FR-016, User Story 4 — added to spec.md via `/speckit-clarify` after
+Increment 1 shipped)**: Adds per-task collapse/expand and per-file collapse-all/expand-all to the
+file-grouped view. Collapse state is transient, in-memory-only `Set<int>` of `TaskSource.id`s on
+`InboxTasksCubit`, deliberately never routed through `SettingsController`/`SettingsService` (no
+persistence, per clarification) and explicitly cleared in `refreshTasks()` so it resets on app
+resume and pull-to-refresh. Hiding a collapsed task's descendants reuses the already-computed,
+already-ordered `depth` field from Increment 1 — no new tree/graph structure is built; `_createFileViews`
+tracks a single "suppress rows deeper than X" cursor while it already iterates each file's tasks in
+order. No `TaskManager`/parser change is needed — this is additive cubit state plus rendering logic.
+
 ## Technical Context
 
 **Language/Version**: Dart (SDK `>=3.0.0`), Flutter 3.35.1 / Dart 3.9.0 (per CI in
@@ -49,6 +59,15 @@ concept. List view and Calendar view are explicitly out of scope per FR-010 — 
 `_createTaskCard` without depth, so they render exactly as before with zero code path changes to
 their own rendering logic.
 
+**Increment 2 Scale/Scope**: One new in-memory field (`Set<int>` on `InboxTasksCubit`) plus three
+new cubit methods (`isCollapsed`, `toggleCollapsed`, `collapseAllInFile`/`expandAllInFile`); two new
+optional `TaskCard` parameters (`hasChildren`, `isCollapsed`, `onToggleCollapse`) rendering one
+extra leading `IconButton` when applicable; two new optional `FileView` parameters
+(`onCollapseAll`/`onExpandAll` callbacks, shown only when the file has at least one collapsible
+task) rendering one extra header control. `_createFileViews` gains a single-pass suppress-cursor
+(an `int?` tracking "hide rows deeper than X") and a same-file-bounded lookahead to determine
+`hasChildren` per task. No `TaskManager`, parser, or `Task` model change.
+
 ## Constitution Check
 
 *GATE: Must pass before Phase 0 research. Re-check after Phase 1 design.*
@@ -73,6 +92,20 @@ per-file loop with no second pass over file content, and task ordering was confi
 re-sort — so the file-grouped view's existing adjacency-by-consecutive-filename grouping needs no
 change to satisfy FR-005 (parent/children stay adjacent, in source order). All gates above still
 PASS; no violations.
+
+### Increment 2 Constitution Re-Check (FR-012–FR-016, User Story 4)
+
+| Principle | Check | Status |
+|---|---|---|
+| I. Local-First & Privacy by Default | Collapse state is an in-memory `Set<int>`; no analytics, no network, no new storage of any kind. | PASS |
+| II. Obsidian Markdown Compatibility | No `Task`/parser/saver interaction at all — collapse/expand never reads or writes vault content, only which already-parsed rows get rendered. | PASS |
+| III. Test-First for Parsing & Business Logic | No `lib/src/core` change. The suppress-cursor/lookahead logic lives in `inbox_tasks.dart` (UI layer) and the collapse `Set` lives in `InboxTasksCubit`; both get widget/unit-level coverage in `tasks.md`, consistent with how Increment 1's `TaskCard` depth rendering was tested. | PASS |
+| IV. Branch & Release Discipline | Same branch (`002-nested-task-visualization`), same PR flow. | PASS |
+| V. Consistent State Management & Simplicity | Reuses the existing `InboxTasksCubit`/`emit()`-via-`_applySearchFilter()` pattern for triggering rebuilds — no new state-management approach, no new dependency, no new persistence key (the clarification explicitly rejected persisting this). | PASS |
+| Platform & Distribution Constraints | Pure Dart/Flutter widget-and-cubit change; no platform-exclusive code; no interaction with the home-screen widget code paths (collapse state is never part of `Task`/`toJsonMap()`). | PASS |
+| Development Workflow & Quality Gates | PR into `main`, CI (`run_tests`) must pass. | PASS |
+
+No violations requiring the Complexity Tracking table.
 
 ## Project Structure
 
@@ -101,19 +134,44 @@ lib/src/
 │                                        # before it is skipped; maintain a depth stack per file
 │                                        # to assign each task's depth/parentTaskId as it's parsed
 ├── screens/inbox_tasks/
-│   └── inbox_tasks.dart                # _createTaskCard: accept/pass an optional depth param;
-│                                        # _createFileViews: pass depth: task.depth (capped) when
-│                                        # building each row; _createCalendarViews and the flat
-│                                        # list-view path: unchanged, do not pass depth (FR-010)
+│   ├── inbox_tasks.dart                # _createTaskCard: accept/pass an optional depth param;
+│   │                                    # _createFileViews: pass depth: task.depth (capped) when
+│   │                                    # building each row; _createCalendarViews and the flat
+│   │                                    # list-view path: unchanged, do not pass depth (FR-010)
+│   │                                    # [Increment 2] _createFileViews: add a suppress-cursor
+│   │                                    # pass hiding a collapsed task's descendant rows; compute
+│   │                                    # per-task hasChildren via same-file lookahead; wire
+│   │                                    # TaskCard's new collapse params and FileView's new
+│   │                                    # collapse-all/expand-all callbacks to the cubit
+│   ├── file_view.dart                  # [Increment 2] add optional onCollapseAll/onExpandAll
+│   │                                    # callbacks + whether to show them; render one small
+│   │                                    # header control when the file has a collapsible task
+│   └── cubit/
+│       └── inbox_tasks_cubit.dart      # [Increment 2] add in-memory Set<int> _collapsedTaskIds;
+│                                        # isCollapsed/toggleCollapsed/collapseAllInFile/
+│                                        # expandAllInFile; clear the set inside refreshTasks()
+│                                        # (not tasksChangedListener, which also fires on every
+│                                        # ordinary task edit/save - see research.md)
 └── widgets/
     └── task_card.dart                  # add optional `depth` param (default 0); render a small
                                          # left indent + one visual marker per depth level, capped
                                          # at a maximum visual depth
+                                         # [Increment 2] add optional hasChildren/isCollapsed/
+                                         # onToggleCollapse params; render one leading IconButton
+                                         # (chevron) when hasChildren && onToggleCollapse != null
 
 test/
 ├── task_manager_unit_test.dart         # or a new markdown_parser_unit_test.dart: unit tests for
 │                                        # depth/parent computation (nested, skipped-level,
 │                                        # no-preceding-task, mixed tabs/spaces fixtures)
+│                                        # [Increment 2] regression tests: collapsing/expanding
+│                                        # never mutates a task's status/schedule/existence
+├── src/widgets/task_card_test.dart     # [Increment 2] hasChildren/isCollapsed/onToggleCollapse
+│                                        # rendering + tap-to-toggle widget tests
+├── src/screens/inbox_tasks/            # [Increment 2] new or extended cubit test file:
+│                                        # isCollapsed/toggleCollapsed/collapseAllInFile/
+│                                        # expandAllInFile behavior, and the refreshTasks()-clears-
+│                                        # collapse-state guarantee (FR-016)
 └── ...                                 # existing suite otherwise unaffected
 ```
 
@@ -121,4 +179,6 @@ test/
 mirrored under `test/`). No new module, package, project boundary, or dependency — this is a
 narrow, additive change: two derived fields on the existing `Task` entity, a small addition to the
 existing single-pass markdown parser, and an optional visual parameter threaded through the
-existing `TaskCard`/`_createFileViews` rendering path used only by the file-grouped view.
+existing `TaskCard`/`_createFileViews` rendering path used only by the file-grouped view. Increment
+2 adds one new piece of transient UI state (`InboxTasksCubit`) and two more optional widget
+parameters (`TaskCard`, `FileView`); still no new file, module, or dependency.

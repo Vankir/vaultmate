@@ -32,9 +32,36 @@ any user action (marking done, editing, swipe reschedule/delete) — consistent 
 (actions never cascade to parent/children, because nothing in the action code paths reads or
 writes these fields at all).
 
-## No new entities
+## No new persisted entities (Increment 1)
 
-No other new entity is introduced. The feature is entirely a derived-attribute addition to the
-existing `Task` entity plus a rendering change; it does not introduce a "TaskGroup",
-"Hierarchy", or similar wrapper type — keeping with Constitution Principle V (prefer the simplest
-solution that fits the existing structure).
+No other new entity is introduced by Increment 1. The feature is entirely a derived-attribute
+addition to the existing `Task` entity plus a rendering change; it does not introduce a
+"TaskGroup", "Hierarchy", or similar wrapper type — keeping with Constitution Principle V (prefer
+the simplest solution that fits the existing structure).
+
+## Increment 2: Collapse/expand state (User Story 4, FR-012–FR-016)
+
+Not a `Task` field and not a new domain entity — a single piece of transient, session-scoped UI
+state, owned by `InboxTasksCubit`:
+
+| Field | Type | Default | Description |
+|---|---|---|---|
+| `_collapsedTaskIds` | `Set<int>` | `{}` (empty) | The `TaskSource.id`s of tasks whose sub-tasks are currently hidden. Membership only; a task's own id is added when the user collapses it and removed when expanded (or when the whole set is cleared). |
+
+**Validation rules**:
+- Only a task for which `hasChildren` is true (see `research.md` Decision 8) can meaningfully be
+  added — the UI never offers a collapse control for a childless task (`FR-015`), but nothing
+  prevents an id with no children from harmlessly sitting in the set (it would simply have no
+  visible effect, since the suppress-cursor never triggers for a task with nothing to suppress).
+- The set is cleared to empty inside `InboxTasksCubit.refreshTasks()` (`FR-016`) — never inside
+  `tasksChangedListener()` (see `research.md` Decision 9 for why those two are different).
+
+**Relationships**: None persisted. `_collapsedTaskIds` is read at render time by
+`_createFileViews` (via `InboxTasksCubit.isCollapsed(task)`) purely to decide which rows to skip;
+it is never written to `Task`, never serialized, and has no relationship to `depth`/`parentTaskId`
+beyond being interpreted *using* those already-computed fields (Decision 7's suppress-cursor).
+
+**State transitions**: `id` added on `toggleCollapsed(task)` when not already present (or removed
+if already present — a toggle); `collapseAllInFile(fileName)` adds every collapsible task's id in
+that file; `expandAllInFile(fileName)` removes every id belonging to that file; `refreshTasks()`
+clears the entire set unconditionally.

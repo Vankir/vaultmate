@@ -105,4 +105,115 @@ void main() {
       expect(find.byKey(depthIndentKey), findsOneWidget);
     });
   });
+
+  group('TaskCard collapse/expand control', () {
+    const collapseToggleKey = Key('task_card_collapse_toggle');
+
+    testWidgets('hasChildren false renders no control regardless of isCollapsed',
+        (tester) async {
+      await tester.pumpWidget(wrap(TaskCard(buildTask())));
+      expect(find.byKey(collapseToggleKey), findsNothing);
+
+      await tester.pumpWidget(
+          wrap(TaskCard(buildTask(), hasChildren: false, isCollapsed: true)));
+      expect(find.byKey(collapseToggleKey), findsNothing);
+    });
+
+    testWidgets(
+        'hasChildren true with a callback renders a control that invokes it '
+        'on tap', (tester) async {
+      var tapped = false;
+      await tester.pumpWidget(wrap(TaskCard(
+        buildTask(),
+        hasChildren: true,
+        isCollapsed: false,
+        onToggleCollapse: () => tapped = true,
+      )));
+
+      expect(find.byKey(collapseToggleKey), findsOneWidget);
+      await tester.tap(find.byKey(collapseToggleKey));
+      expect(tapped, isTrue);
+    });
+
+    testWidgets('isCollapsed renders a visibly different icon than expanded',
+        (tester) async {
+      await tester.pumpWidget(wrap(TaskCard(
+        buildTask(),
+        hasChildren: true,
+        isCollapsed: false,
+        onToggleCollapse: () {},
+      )));
+      final expandedIcon =
+          tester.widget<IconButton>(find.byKey(collapseToggleKey)).icon;
+
+      await tester.pumpWidget(wrap(TaskCard(
+        buildTask(),
+        hasChildren: true,
+        isCollapsed: true,
+        onToggleCollapse: () {},
+      )));
+      final collapsedIcon =
+          tester.widget<IconButton>(find.byKey(collapseToggleKey)).icon;
+
+      expect(
+          (expandedIcon as Icon).icon != (collapsedIcon as Icon).icon, isTrue);
+    });
+
+    testWidgets(
+        'the checkbox renders the same size whether or not the task has '
+        'children (a stacked toggle must not shrink it)', (tester) async {
+      await tester.pumpWidget(wrap(TaskCard(buildTask())));
+      final plainCheckboxSize = tester.getSize(find.byType(Checkbox));
+
+      await tester.pumpWidget(wrap(TaskCard(
+        buildTask(),
+        hasChildren: true,
+        isCollapsed: false,
+        onToggleCollapse: () {},
+      )));
+      final parentCheckboxSize = tester.getSize(find.byType(Checkbox));
+
+      expect(parentCheckboxSize, plainCheckboxSize);
+    });
+  });
+
+  group('TaskCard subtitle stays on one line', () {
+    testWidgets(
+        'scheduled and due dates never force a line break between them',
+        (tester) async {
+      final task = Task(
+        'Task with dates',
+        scheduled: DateTime(2026, 1, 5),
+        due: DateTime(2026, 1, 10),
+      );
+
+      await tester.pumpWidget(wrap(TaskCard(task)));
+
+      final subtitleText = tester.widget<Text>(find.byWidgetPredicate(
+          (w) => w is Text && w.data != null && w.data!.contains('2026')));
+
+      expect(subtitleText.data!.contains('\n'), isFalse);
+      expect(subtitleText.maxLines, 1);
+      expect(subtitleText.overflow, TextOverflow.ellipsis);
+    });
+
+    testWidgets('still one line (via RichText) when the task also has tags',
+        (tester) async {
+      final task = Task(
+        'Task with dates #work',
+        scheduled: DateTime(2026, 1, 5),
+        due: DateTime(2026, 1, 10),
+      );
+
+      await tester.pumpWidget(wrap(TaskCard(task)));
+
+      final subtitleRichText = tester.widget<RichText>(find.byWidgetPredicate(
+          (w) => w is RichText && w.text.toPlainText().contains('2026')));
+
+      expect(subtitleRichText.text.toPlainText().contains('\n'), isFalse);
+      expect(subtitleRichText.maxLines, 1);
+      expect(subtitleRichText.overflow, TextOverflow.ellipsis);
+      expect(find.text('#work'), findsOneWidget);
+    });
+  });
 }

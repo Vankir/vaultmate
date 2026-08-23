@@ -25,6 +25,13 @@ class InboxTasksCubit extends Cubit<InboxTasksState> {
   int _taskDoneCount = 0;
   int _taskCount = 0;
 
+  // Transient, in-memory only (FR-016): never routed through
+  // SettingsController, deliberately cleared only in refreshTasks() - not in
+  // tasksChangedListener(), which also fires on every ordinary task edit and
+  // would otherwise reset a user's collapsed groups constantly. See
+  // research.md Decision 9.
+  final Set<int> _collapsedTaskIds = <int>{};
+
   SortMode get sortMode => SettingsController.getInstance().sortMode;
   ViewMode get viewMode => SettingsController.getInstance().viewMode;
   bool get showOverdueOnly => SettingsController.getInstance().showOverdueOnly;
@@ -214,7 +221,76 @@ class InboxTasksCubit extends Cubit<InboxTasksState> {
     _applySearchFilter();
   }
 
+  bool isCollapsed(Task task) {
+    final id = task.taskSource?.id;
+    return id != null && _collapsedTaskIds.contains(id);
+  }
+
+  void toggleCollapsed(Task task) {
+    final id = task.taskSource?.id;
+    if (id == null) return;
+    if (!_collapsedTaskIds.add(id)) {
+      _collapsedTaskIds.remove(id);
+    }
+    _applySearchFilter();
+  }
+
+  bool _hasChildren(Task task) {
+    final id = task.taskSource?.id;
+    return id != null && _tasks.any((t) => t.parentTaskId == id);
+  }
+
+  void collapseAllInFile(String fileName) {
+    for (final task in _tasks) {
+      final id = task.taskSource?.id;
+      if (id != null &&
+          task.taskSource?.fileName == fileName &&
+          _hasChildren(task)) {
+        _collapsedTaskIds.add(id);
+      }
+    }
+    _applySearchFilter();
+  }
+
+  void expandAllInFile(String fileName) {
+    final idsInFile = _tasks
+        .where((t) => t.taskSource?.fileName == fileName)
+        .map((t) => t.taskSource?.id)
+        .whereType<int>()
+        .toSet();
+    _collapsedTaskIds.removeAll(idsInFile);
+    _applySearchFilter();
+  }
+
+  bool hasCollapsibleTasks(String fileName) {
+    return _tasks.any(
+        (t) => t.taskSource?.fileName == fileName && _hasChildren(t));
+  }
+
+  /// True only when every collapsible task in this file is currently
+  /// collapsed - drives which icon/label the single collapse-all/expand-all
+  /// toggle shows. False (never true) when the file has no collapsible
+  /// tasks at all - callers should gate on hasCollapsibleTasks first.
+  bool allCollapsedInFile(String fileName) {
+    final collapsible = _tasks.where(
+        (t) => t.taskSource?.fileName == fileName && _hasChildren(t));
+    return collapsible.isNotEmpty && collapsible.every(isCollapsed);
+  }
+
+  void toggleCollapseAllInFile(String fileName) {
+    if (allCollapsedInFile(fileName)) {
+      expandAllInFile(fileName);
+    } else {
+      collapseAllInFile(fileName);
+    }
+  }
+
+  void clearCollapsedTasks() {
+    _collapsedTaskIds.clear();
+  }
+
   void refreshTasks() {
+    clearCollapsedTasks();
     var settings = SettingsController.getInstance();
     taskManager.dateTemplate = settings.dateTemplate;
     taskManager.includeDueTasksInToday = settings.includeDueTasksInToday;

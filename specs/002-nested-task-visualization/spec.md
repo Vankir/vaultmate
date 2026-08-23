@@ -8,6 +8,14 @@
 
 **Input**: User description: "Nested task visualization: parse and preserve each task's indentation level so sub-tasks (indented checkbox lines under a parent checkbox line) are recognized as children of their parent task, and render them visually nested (indented, with a small vertical depth marker) wherever parent and children are shown together in the same list — starting with the file-grouped view. See https://github.com/Vankir/vaultmate/issues/31 for the original report and example markdown structure."
 
+## Clarifications
+
+### Session 2026-08-23
+
+- Q: When you collapse a group, should that hide just that one task's direct sub-tasks, only make sense at the whole-file level, or should both granularities be available? → A: Both — per-task collapse toggles, plus a way to collapse everything in a file at once.
+- Q: Should collapsed/expanded state be remembered after the app restarts or the note is refreshed, or should it reset back to fully expanded each time? → A: Reset to fully expanded on every reload — no persistence.
+- Q: Should the depth markers (the small vertical bars indicating nesting level) also be announced to screen readers, or is visual-only acceptable for now? → A: Visual-only for now; explicitly deferred, known gap.
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - See sub-tasks nested under their parent in the grouped view (Priority: P1)
@@ -94,6 +102,43 @@ child's status is unaffected.
 
 ---
 
+### User Story 4 - Collapse and expand sub-task groups in the grouped view (Priority: P2)
+
+A user viewing a note with many sub-tasks in the file-grouped view can collapse a specific task's
+sub-tasks to reduce clutter, and expand them again; they can also collapse or expand every
+sub-task group in a note at once, instead of one at a time. Reopening the note, or restarting the
+app, always starts fresh with everything expanded.
+
+**Why this priority**: Directly requested alongside the core visualization ask — once sub-tasks
+are visible (User Story 1/2), a note with many of them can get long, and collapsing lets a user
+focus on just the part of a checklist they are currently working on.
+
+**Independent Test**: In a note with a task that has several sub-tasks, collapse that task and
+verify its sub-tasks disappear from view while the task itself stays visible; expand it again and
+verify they reappear in their original order and depth. Separately, use the note's collapse-all
+control and verify every task's sub-tasks in that note hide at once; use expand-all to reverse it.
+
+**Acceptance Scenarios**:
+
+1. **Given** a task with one or more sub-tasks is shown in the grouped view, **When** the user
+   collapses that task, **Then** its sub-tasks (and any further descendants) are hidden from the
+   list, while the task itself remains visible.
+2. **Given** a task's sub-tasks are currently collapsed, **When** the user expands that task
+   again, **Then** its sub-tasks reappear in the same order and at the same depth as before
+   collapsing.
+3. **Given** a note has multiple separate tasks that each have their own sub-tasks, **When** the
+   user collapses one of them, **Then** the others' sub-tasks remain visible and unaffected.
+4. **Given** a note has one or more tasks with sub-tasks, **When** the user triggers collapse-all
+   for that note, **Then** every task's sub-tasks in that note are hidden at once; expand-all
+   reverses this for every task in that note.
+5. **Given** a task has no sub-tasks, **When** the user views it in the grouped view, **Then** no
+   collapse/expand control is shown for it.
+6. **Given** any tasks in a note are currently collapsed, **When** the user reloads that note's
+   tasks (e.g. app restart, pull-to-refresh, or reopening the screen), **Then** every task renders
+   fully expanded again, regardless of its collapsed state before the reload.
+
+---
+
 ### Edge Cases
 
 - What happens when a non-task line (plain text, a note, a blank line) sits between a parent task
@@ -115,11 +160,14 @@ child's status is unaffected.
   still renders, at its recorded depth, rather than being hidden or silently promoted to
   top-level.
 - What happens in the List view (flat) or Calendar view? Both continue to render every task exactly
-  as they do today, with no indentation — nested visualization is scoped to the file-grouped view
-  only for this feature (see Assumptions).
+  as they do today, with no indentation and no collapse/expand controls — nested visualization and
+  collapsing are both scoped to the file-grouped view only for this feature (see Assumptions).
 - What happens to an indented line that isn't a valid checkbox task (e.g. a plain sub-bullet note)?
   It is not parsed as a task today and continues not to be, exactly as before; it has no effect on
   the hierarchy of the actual tasks around it.
+- What happens to collapse/expand state (User Story 4) when a note is reloaded, refreshed, or the
+  app restarts? Every task returns to its default expanded state — collapse/expand state is not
+  remembered across reloads (see Assumptions).
 
 ## Requirements *(mandatory)*
 
@@ -156,6 +204,18 @@ child's status is unaffected.
 - **FR-011**: If a task's parent is not present in the currently displayed/filtered set of tasks,
   the task itself MUST still render (at its recorded depth) rather than being hidden or requiring
   its parent to also be visible.
+- **FR-012**: The file-grouped view MUST allow a user to collapse a task that has one or more
+  sub-tasks, hiding that task's sub-tasks (and any of their own descendants) from the rendered
+  list while keeping the task itself visible.
+- **FR-013**: The file-grouped view MUST allow a user to expand a previously collapsed task,
+  restoring its hidden sub-tasks to view in their original order and depth.
+- **FR-014**: The file-grouped view MUST provide a way to collapse every collapsible task within a
+  single note at once, and a way to expand them all again, without requiring the user to toggle
+  each one individually.
+- **FR-015**: A task with no sub-tasks MUST NOT display a collapse/expand control.
+- **FR-016**: Collapse/expand state MUST NOT be persisted; every task MUST render fully expanded
+  whenever its note's tasks are reloaded (e.g. app restart, manual refresh, or reopening the
+  screen), regardless of its collapsed state before the reload.
 
 ### Key Entities
 
@@ -163,6 +223,10 @@ child's status is unaffected.
   its parent task (if any) and its resulting depth — derived from its own and other tasks'
   indentation within the same source note. No new user-facing data is entered or stored beyond
   what the note's existing markdown indentation already expresses.
+- **Collapse/expand state**: Transient, per-task UI state scoped to the current viewing session
+  (User Story 4). Not part of the `Task` entity, not persisted, and not derived from the note's
+  content — it exists only in memory for as long as the user is viewing that note's tasks, and
+  always resets on reload (see FR-016).
 
 ## Success Criteria *(mandatory)*
 
@@ -179,6 +243,9 @@ child's status is unaffected.
   a result of introducing hierarchy.
 - **SC-004**: A user can tell how many levels deep a given task is nested without counting
   indentation spaces in the original note themselves.
+- **SC-005**: A user can hide and later restore a specific task's sub-tasks, and can collapse or
+  expand an entire note's sub-tasks at once, without leaving the grouped view or needing more than
+  one action per task (or one action for "all").
 
 ## Assumptions
 
@@ -199,3 +266,11 @@ child's status is unaffected.
   ignored, exactly as today.
 - Visual indentation is capped at a reasonable maximum depth on narrow (mobile) screens, so very
   deeply nested notes remain legible rather than being pushed indefinitely off-screen.
+- Collapse/expand state (User Story 4) is transient, in-memory only, and scoped to the current
+  viewing session; it is not written to any settings storage and always resets to fully expanded
+  when a note's tasks are reloaded. This mirrors the app's existing lack of persistence for other
+  view-only state (e.g. scroll position), and avoids this feature needing any new persisted
+  storage or settings key.
+- The depth markers from FR-004 are not required to be screen-reader accessible in this iteration;
+  this is a known, explicitly accepted gap (visual-only), not an oversight, and may be revisited in
+  a future accessibility pass.

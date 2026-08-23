@@ -74,3 +74,34 @@ second level of nesting under it ("Cookies" → "Milk"/"Chocolate Chips").
    view renders for that file.
    **Expected**: all 8 appear — none hidden, merged, or silently dropped as a result of adding
    hierarchy.
+
+## Scenario 6 — Collapse and expand a single task (US4, FR-012, FR-013, FR-015)
+
+1. In the grouped view, find the collapse control on "Cookies" (it has children — "Milk" and
+   "Chocolate Chips").
+   **Expected**: tapping it hides "Milk" and "Chocolate Chips"; "Cookies" itself, "Cheese", "Wine",
+   and everything in "Errands" remain visible and unaffected.
+2. Tap the same control again.
+   **Expected**: "Milk" and "Chocolate Chips" reappear, in the same order and at the same
+   indentation as before.
+3. Look at "Cheese", "Wine", "Pick up dry cleaning", and "Drop off package".
+   **Expected**: none of them show a collapse control at all — they have no sub-tasks (FR-015).
+
+## Scenario 7 — Collapse-all / expand-all for a file (US4, FR-014)
+
+1. With "Cookies" expanded again (undo Scenario 6 if needed), use the file's collapse-all control
+   (near the "File: scratch-nested.md" header).
+   **Expected**: every sub-task in the file hides at once — only "Groceries" and "Errands" remain
+   visible.
+2. Use the file's expand-all control.
+   **Expected**: all 8 tasks reappear, in their original order and depth.
+
+## Scenario 8 — Collapse state resets on reload, never on an unrelated edit (FR-016)
+
+1. Collapse "Cookies" again. Pull-to-refresh the screen (or fully restart the app).
+   **Expected**: "Cookies" is expanded again — "Milk" and "Chocolate Chips" are visible, exactly as
+   if it had never been collapsed.
+2. Collapse "Cookies" once more. This time, mark "Drop off package" (an unrelated task, already
+   done, in a different branch of the same file) as not-done, then done again.
+   **Expected**: "Cookies" remains collapsed throughout — an ordinary task edit elsewhere must not
+   reset anyone's collapse state.

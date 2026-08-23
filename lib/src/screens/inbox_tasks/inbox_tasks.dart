@@ -721,13 +721,39 @@ class InboxTasks extends StatelessWidget with WidgetsBindingObserver {
     TaskCard? firstCardInGroup;
     List<Widget> fileTaskWidgets = [];
     var hintApplied = false;
+    // Increment 2 (collapse/expand): hides an entire collapsed subtree by
+    // skipping row construction for any task deeper than the nearest active
+    // collapsed ancestor - see contracts/collapse_render_contract.md. Resets
+    // for free whenever a depth-0 task is reached (including every new
+    // file's first task, which is always depth 0), so no separate
+    // file-boundary handling is needed here.
+    int? suppressBelowDepth;
 
-    for (var task in tasks) {
+    for (var i = 0; i < tasks.length; i++) {
+      final task = tasks[i];
+
+      if (suppressBelowDepth != null) {
+        if (task.depth > suppressBelowDepth) {
+          continue;
+        }
+        suppressBelowDepth = null;
+      }
+
+      final hasChildren = i + 1 < tasks.length &&
+          tasks[i + 1].taskSource?.fileName == task.taskSource?.fileName &&
+          tasks[i + 1].depth > task.depth;
+      final isCollapsed = _inboxTaskCubit.isCollapsed(task);
+
       // Only the file-grouped view renders nested indentation (FR-010) -
       // list view and calendar view's _createTaskCard call sites
       // deliberately don't pass depth, so they keep rendering flat.
-      final card =
-          _createTaskCard(context, task, highlightedText, depth: task.depth);
+      final card = _createTaskCard(context, task, highlightedText,
+          depth: task.depth,
+          hasChildren: hasChildren,
+          isCollapsed: isCollapsed,
+          onToggleCollapse: hasChildren
+              ? () => _inboxTaskCubit.toggleCollapsed(task)
+              : null);
       Widget rowWidget = _wrapTaskCardWithSwipe(context, card);
       if (!hintApplied && !_inboxTaskCubit.swipeHintShown) {
         hintApplied = true;
@@ -741,12 +767,25 @@ class InboxTasks extends StatelessWidget with WidgetsBindingObserver {
       } else {
         fileTaskWidgets = [rowWidget];
         firstCardInGroup = card;
+        final fileName = card.task.taskSource?.fileName;
+        final hasCollapsible =
+            fileName != null && _inboxTaskCubit.hasCollapsibleTasks(fileName);
         fileViews.add(FileView(
           fileTaskWidgets,
-          fileName: card.task.taskSource?.fileName,
+          fileName: fileName,
           highlightedText: highlightedText,
           vaultName: SettingsController.getInstance().vaultName!,
+          allCollapsed: hasCollapsible
+              ? _inboxTaskCubit.allCollapsedInFile(fileName)
+              : null,
+          onToggleCollapseAll: hasCollapsible
+              ? () => _inboxTaskCubit.toggleCollapseAllInFile(fileName)
+              : null,
         ));
+      }
+
+      if (hasChildren && isCollapsed) {
+        suppressBelowDepth = task.depth;
       }
     }
 
@@ -755,10 +794,16 @@ class InboxTasks extends StatelessWidget with WidgetsBindingObserver {
 
   TaskCard _createTaskCard(
       BuildContext context, Task task, String highlightedText,
-      {int depth = 0}) {
+      {int depth = 0,
+      bool hasChildren = false,
+      bool isCollapsed = false,
+      VoidCallback? onToggleCollapse}) {
     return TaskCard(task,
         hightlightedText: highlightedText,
         depth: depth,
+        hasChildren: hasChildren,
+        isCollapsed: isCollapsed,
+        onToggleCollapse: onToggleCollapse,
         taskDonePressed: (bool? res) {
       if (res != null) {
         _inboxTaskCubit.changeTaskStatus(
