@@ -44,13 +44,34 @@ class SubscriptionManager extends ChangeNotifier {
 
   // Debug flag to bypass subscription checks during development
   // Set to false before releasing to production!
-  static const bool _debugUnlockPremium = kDebugMode; // Automatically true in debug builds
+  static const bool _debugUnlockPremium =
+      kDebugMode; // Automatically true in debug builds
 
   bool get isAvailable => _isAvailable;
   List<ProductDetails> get products => _products;
   List<PurchaseDetails> get purchases => _purchases;
   SubscriptionStatus get subscriptionStatus => _subscriptionStatus;
-  bool get hasActiveSubscription => _debugUnlockPremium || _hasActiveSubscription;
+  bool get hasActiveSubscription =>
+      _debugUnlockPremium || _hasActiveSubscription;
+
+  /// Opaque purchase-verification token for an active monthly or yearly
+  /// purchase, or null if there isn't one. Deliberately excludes the
+  /// lifetime tier — a one-time purchase doesn't fund the managed
+  /// DeepSeek option's ongoing per-request cost (see spec Clarifications,
+  /// FR-010/FR-011). The receiving server — not this getter — is the one
+  /// that actually verifies this token; this only decides whether the
+  /// client believes it's worth sending.
+  String? get recurringEntitlementProof {
+    for (final purchase in _purchases) {
+      if (purchase.productID == monthlySubscriptionId ||
+          purchase.productID == yearlySubscriptionId) {
+        return purchase.verificationData.localVerificationData;
+      }
+    }
+    return null;
+  }
+
+  bool get hasRecurringSubscription => recurringEntitlementProof != null;
 
   Future<void> initialize() async {
     try {

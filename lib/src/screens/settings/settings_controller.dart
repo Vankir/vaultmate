@@ -1,5 +1,8 @@
+import 'dart:math';
+
 import 'package:flutter/material.dart';
 import 'package:logger/logger.dart';
+import 'package:obsi/src/core/ai_assistant/ai_provider_config.dart';
 import 'package:obsi/src/core/background/background_service_initializer.dart';
 import 'package:obsi/src/core/notification_manager.dart';
 import 'package:obsi/src/core/storage/ios_tasks_file_storage.dart';
@@ -247,6 +250,7 @@ class SettingsController with ChangeNotifier {
   String? _globalTaskFilter;
   int _rateDialogCounter = 0;
   String? _chatGptKey;
+  AIProviderConfig _aiProviderConfig = AIProviderConfig.defaultConfig;
   String? _saveMarker;
   bool _chooseFileEnabled = false;
   String? _lastSelectedFile;
@@ -284,6 +288,7 @@ class SettingsController with ChangeNotifier {
   DateTime? get zeroDate => _zeroDate;
   int get rateDialogCounter => _rateDialogCounter;
   String? get chatGptKey => _chatGptKey;
+  AIProviderConfig get aiProviderConfig => _aiProviderConfig;
   String? get saveMarker => _saveMarker;
   bool get chooseFileEnabled => _chooseFileEnabled;
   String? get lastSelectedFile => _lastSelectedFile;
@@ -314,6 +319,10 @@ class SettingsController with ChangeNotifier {
     _sortMode = await _settingsService.sortMode();
     _globalTaskFilter = await _settingsService.globalTaskFilter();
     _chatGptKey = await _settingsService.chatGptKey();
+    _aiProviderConfig = await _settingsService.aiProviderConfig();
+    if ((_aiProviderConfig.installId ?? '').isEmpty) {
+      await ensureInstallId();
+    }
     _showOverdueOnly = await _settingsService.showOverdueOnly();
     _includeDueTasksInToday = await _settingsService.includeDueTasksInToday();
     _swipeHintShownToday = await _settingsService.swipeHintShownToday();
@@ -363,7 +372,54 @@ class SettingsController with ChangeNotifier {
     if (newChatGptKey == chatGptKey) return;
 
     _chatGptKey = newChatGptKey;
+    if (_aiProviderConfig.providerType == AIProviderType.gemini ||
+        _aiProviderConfig.providerType == AIProviderType.chatgpt) {
+      _aiProviderConfig = _aiProviderConfig.copyWith(apiKey: newChatGptKey);
+    }
     await _settingsService.updateChatGptKey(newChatGptKey);
+  }
+
+  Future<void> updateAIProviderType(AIProviderType providerType) async {
+    if (providerType == _aiProviderConfig.providerType) return;
+
+    _aiProviderConfig = _aiProviderConfig.copyWith(providerType: providerType);
+    notifyListeners();
+    await _settingsService.updateAIProviderType(providerType);
+  }
+
+  Future<void> updateCustomProviderConfig({
+    required String? baseUrl,
+    required String? apiKey,
+    required String? model,
+  }) async {
+    _aiProviderConfig = AIProviderConfig(
+      providerType: _aiProviderConfig.providerType,
+      apiKey: apiKey,
+      baseUrl: baseUrl,
+      model: model,
+      installId: _aiProviderConfig.installId,
+    );
+    notifyListeners();
+    await _settingsService.updateCustomProviderBaseUrl(baseUrl);
+    await _settingsService.updateCustomProviderApiKey(apiKey);
+    await _settingsService.updateCustomProviderModel(model);
+  }
+
+  /// Returns the per-install identifier used for the managed DeepSeek option,
+  /// generating and persisting one lazily on first use (research.md #2).
+  Future<String> ensureInstallId() async {
+    if (_aiProviderConfig.installId != null &&
+        _aiProviderConfig.installId!.isNotEmpty) {
+      return _aiProviderConfig.installId!;
+    }
+
+    final bytes = List<int>.generate(16, (_) => Random.secure().nextInt(256));
+    final newInstallId =
+        bytes.map((b) => b.toRadixString(16).padLeft(2, '0')).join();
+
+    _aiProviderConfig = _aiProviderConfig.copyWith(installId: newInstallId);
+    await _settingsService.updateInstallId(newInstallId);
+    return newInstallId;
   }
 
   Future<void> updateSaveMarker(String? newSaveMarker) async {

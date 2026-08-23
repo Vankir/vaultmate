@@ -3,7 +3,9 @@ import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 import 'package:logger/logger.dart';
-import 'package:obsi/src/core/ai_assistant/chatgpt_assistant.dart';
+import 'package:obsi/src/core/ai_assistant/ai_provider_config.dart';
+import 'package:obsi/src/core/ai_assistant/openai_compatible_assistant.dart';
+import 'package:obsi/src/core/subscription/subscription_manager.dart';
 import 'package:obsi/src/core/tasks/task.dart';
 import 'package:obsi/src/core/tasks/task_parser.dart';
 import 'package:obsi/src/core/tasks/task_source.dart';
@@ -49,8 +51,53 @@ abstract class AIAssistant with ChangeNotifier {
   final toolsRegistry;
 
   AIAssistant(this.apiKey, this.toolsRegistry);
-  factory AIAssistant.getInstance(String apiKey, ToolsRegistry toolsRegistry) {
-    return ChatGptAssistant(apiKey, toolsRegistry);
+
+  /// Instantiates the single [OpenAICompatibleAssistant] with the
+  /// endpoint/model/headers appropriate for [config.providerType] — every
+  /// preset is served by the same class (spec: no per-provider subclasses).
+  ///
+  /// [entitlementProofResolver] defaults to reading the real
+  /// [SubscriptionManager] singleton; tests inject their own to avoid
+  /// touching real in-app-purchase platform channels.
+  factory AIAssistant.fromConfig(
+      AIProviderConfig config, ToolsRegistry toolsRegistry,
+      {String? Function()? entitlementProofResolver}) {
+    switch (config.providerType) {
+      case AIProviderType.gemini:
+      case AIProviderType.chatgpt:
+        return OpenAICompatibleAssistant(
+          config,
+          toolsRegistry,
+          baseUrl: config.providerType.baseUrl,
+          model: (config.model?.isNotEmpty ?? false)
+              ? config.model
+              : config.providerType.defaultModel,
+        );
+      case AIProviderType.customOpenAI:
+        return OpenAICompatibleAssistant(
+          config,
+          toolsRegistry,
+          baseUrl: config.baseUrl,
+          model: config.model,
+        );
+      case AIProviderType.managedDeepSeek:
+        final resolveProof = entitlementProofResolver ??
+            () => SubscriptionManager.instance.recurringEntitlementProof;
+        final proof = resolveProof();
+        return OpenAICompatibleAssistant(
+          // The managed proxy needs no user-supplied key (FR-006).
+          AIProviderConfig(providerType: config.providerType),
+          toolsRegistry,
+          baseUrl: AIProviderConfig.managedDeepSeekBaseUrl.isEmpty
+              ? null
+              : AIProviderConfig.managedDeepSeekBaseUrl,
+          model: config.providerType.defaultModel,
+          extraHeaders: {
+            'X-Install-Id': config.installId ?? '',
+            if (proof != null) 'X-Entitlement-Proof': proof,
+          },
+        );
+    }
   }
 
   Future<String?> chat(List<ChatCompletionMessage> messages,

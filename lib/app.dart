@@ -3,6 +3,7 @@ import 'package:obsi/src/localization/app_localizations.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:obsi/src/screens/introduction/onboarding.dart';
 import 'package:obsi/src/core/tasks/task_manager.dart';
+import 'package:obsi/src/screens/settings/ai_provider_settings_view.dart';
 import 'package:obsi/src/screens/settings/settings_controller.dart';
 import 'package:obsi/src/screens/subscription/subscription_screen.dart';
 import 'package:obsi/src/core/intent_service.dart';
@@ -230,6 +231,10 @@ class _AppState extends State<App> {
                     main_screen.MainNavigator(1, widget.taskManager),
                 SubscriptionScreen.routeName: (context) => SubscriptionScreen(
                       settingsController: widget.settingsController,
+                    ),
+                AIProviderSettingsView.routeName: (context) =>
+                    AIProviderSettingsView(
+                      controller: widget.settingsController,
                     ),
               },
             ));
