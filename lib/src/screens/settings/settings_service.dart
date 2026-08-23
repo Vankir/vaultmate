@@ -38,7 +38,6 @@ class SettingsService {
   static const String _reviewCompletedReminderTimeKey =
       "review_completed_reminder_time";
   static const String _saveMarkerKey = "save_marker";
-  static const String _chooseFileEnabledKey = "choose_file_enabled";
   static const String _lastSelectedFileKey = "last_selected_file";
   static const String _filePathPatternKey = "file_path_pattern";
   static const String _showAITabKey = "show_ai_tab";
@@ -46,6 +45,8 @@ class SettingsService {
       "data_view_default_markdown_format";
   static const String _backgroundMonitoringEnabledKey =
       "background_monitoring_enabled";
+  static const String _taskFormatPreferenceKey = "task_format_preference";
+  static const String _lastTaskNoteFolderKey = "last_task_note_folder";
 
   Future<ThemeMode> themeMode() async => ThemeMode.system;
 
@@ -270,6 +271,12 @@ class SettingsService {
     sharedPreferences.setBool(_includeDueTasksInTodayKey, value);
   }
 
+  /// Whether the user has finished the full 3-screen onboarding sequence
+  /// (welcome, task format choice, folder selection) — not just "has the
+  /// intro carousel been seen" as it meant before the onboarding redesign.
+  /// Combined with [SettingsController.vaultDirectory] being non-null, this
+  /// is the single gate `app.dart` uses to decide whether to show
+  /// onboarding at all.
   Future<bool> onboardingComplete() async {
     var sharedPreferences = await SharedPreferences.getInstance();
     return sharedPreferences.getBool(_onboardingCompleteKey) ?? false;
@@ -375,16 +382,6 @@ class SettingsService {
     }
   }
 
-  Future<bool> chooseFileEnabled() async {
-    var sharedPreferences = await SharedPreferences.getInstance();
-    return sharedPreferences.getBool(_chooseFileEnabledKey) ?? false;
-  }
-
-  Future<void> updateChooseFileEnabled(bool value) async {
-    var sharedPreferences = await SharedPreferences.getInstance();
-    sharedPreferences.setBool(_chooseFileEnabledKey, value);
-  }
-
   Future<String?> lastSelectedFile() async {
     var sharedPreferences = await SharedPreferences.getInstance();
     return sharedPreferences.getString(_lastSelectedFileKey);
@@ -396,6 +393,23 @@ class SettingsService {
       sharedPreferences.remove(_lastSelectedFileKey);
     } else {
       sharedPreferences.setString(_lastSelectedFileKey, filePath);
+    }
+  }
+
+  /// The folder the user last saved a TaskNote-format task into, used to
+  /// pre-select that folder next time instead of starting from the vault
+  /// root every time.
+  Future<String?> lastTaskNoteFolder() async {
+    var sharedPreferences = await SharedPreferences.getInstance();
+    return sharedPreferences.getString(_lastTaskNoteFolderKey);
+  }
+
+  Future<void> updateLastTaskNoteFolder(String? folder) async {
+    var sharedPreferences = await SharedPreferences.getInstance();
+    if (folder == null) {
+      sharedPreferences.remove(_lastTaskNoteFolderKey);
+    } else {
+      sharedPreferences.setString(_lastTaskNoteFolderKey, folder);
     }
   }
 
@@ -431,5 +445,17 @@ class SettingsService {
   Future<void> updateBackgroundMonitoringEnabled(bool value) async {
     var sharedPreferences = await SharedPreferences.getInstance();
     sharedPreferences.setBool(_backgroundMonitoringEnabledKey, value);
+  }
+
+  /// Default task format for newly created tasks: "inline", "taskNote", or
+  /// "both". Defaults to "inline" (today's existing behavior) when unset.
+  Future<String> taskFormatPreference() async {
+    var sharedPreferences = await SharedPreferences.getInstance();
+    return sharedPreferences.getString(_taskFormatPreferenceKey) ?? "inline";
+  }
+
+  Future<void> updateTaskFormatPreference(String value) async {
+    var sharedPreferences = await SharedPreferences.getInstance();
+    sharedPreferences.setString(_taskFormatPreferenceKey, value);
   }
 }

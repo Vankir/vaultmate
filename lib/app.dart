@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:obsi/src/localization/app_localizations.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
-import 'package:obsi/src/screens/introduction/onboarding.dart';
+import 'package:obsi/src/screens/onboarding/onboarding_flow.dart';
 import 'package:obsi/src/core/tasks/task_manager.dart';
 import 'package:obsi/src/screens/settings/settings_controller.dart';
 import 'package:obsi/src/screens/subscription/subscription_screen.dart';
@@ -13,8 +13,6 @@ import 'package:obsi/src/core/tasks/task.dart';
 import 'package:path/path.dart' as p;
 import 'dart:convert';
 import 'main_navigator.dart' as main_screen;
-import 'src/screens/init/cubit/init_cubit.dart';
-import 'src/screens/init/init.dart';
 import 'src/screens/notes_widget_config/notes_widget_config.dart';
 import 'src/screens/notes_widget_config/cubit/notes_widget_config_cubit.dart';
 
@@ -29,13 +27,11 @@ class App extends StatefulWidget {
 }
 
 class _AppState extends State<App> {
-  bool _onboardingComplete = false;
   final GlobalKey<NavigatorState> _navigatorKey = GlobalKey<NavigatorState>();
 
   @override
   void initState() {
     super.initState();
-    _checkOnboarding();
     _setupIntentHandler();
   }
 
@@ -132,49 +128,18 @@ class _AppState extends State<App> {
     return task;
   }
 
-  Future<void> _checkOnboarding() async {
-    try {
-      final complete = widget.settingsController.onboardingComplete;
-      setState(() {
-        _onboardingComplete = complete;
-      });
-    } catch (e) {
-      debugPrint('Error checking onboarding status: $e');
-      // Default to showing onboarding if there's an error
-      setState(() {
-        _onboardingComplete = false;
-      });
-    }
-  }
-
-  Future<void> _finishOnboarding(bool dontShowAgain) async {
-    try {
-      await widget.settingsController.updateOnboardingComplete(dontShowAgain);
-      setState(() {
-        _onboardingComplete = true;
-      });
-    } catch (e) {
-      debugPrint('Error completing onboarding: $e');
-      // Show error to user or retry mechanism could be added here
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Failed to complete onboarding. Please try again.'),
-          action: SnackBarAction(
-            label: 'Retry',
-            onPressed: () => _finishOnboarding(dontShowAgain),
-          ),
-        ),
+  Widget _buildHomeWidget() {
+    final settings = widget.settingsController;
+    // Single gate replacing the old two independent checks (intro carousel
+    // seen, then separately vaultDirectory == null): onboarding is only
+    // complete once all 3 screens finish, ending with a valid vault folder.
+    if (!settings.onboardingComplete || settings.vaultDirectory == null) {
+      return OnboardingFlow(
+        settingsController: settings,
+        taskManager: widget.taskManager,
       );
     }
-  }
-
-  Widget _buildHomeWidget() {
-    if (!_onboardingComplete) {
-      return OnboardingPage(onDone: _finishOnboarding);
-    }
-    return widget.settingsController.vaultDirectory == null
-        ? Init(InitCubit(widget.settingsController, widget.taskManager))
-        : main_screen.MainNavigator(0, widget.taskManager);
+    return main_screen.MainNavigator(0, widget.taskManager);
   }
 
   @override

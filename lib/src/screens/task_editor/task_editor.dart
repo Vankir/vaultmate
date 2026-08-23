@@ -72,7 +72,9 @@ class _TaskEditorState extends State<TaskEditor> {
                                   .setDescription(value);
                             },
                           ),
-                          if (context.read<TaskEditorCubit>().isNewTask)
+                          if (context
+                              .read<TaskEditorCubit>()
+                              .showTaskFormatChoice)
                             CheckboxListTile(
                               title: const Text('TaskNote format'),
                               value: context
@@ -134,12 +136,15 @@ class _TaskEditorState extends State<TaskEditor> {
                           _buildLabeledRow(
                             "${MarkdownTaskMarkers.dueDateMarker} Due:",
                             Row(children: [
-                              addDateTimePicker(
-                                  _dueDate, state.task?.due, context, (date) {
-                                context
-                                    .read<TaskEditorCubit>()
-                                    .setDueDate(date);
-                              }),
+                              Expanded(
+                                child: addDateTimePicker(
+                                    _dueDate, state.task?.due, context,
+                                    (date) {
+                                  context
+                                      .read<TaskEditorCubit>()
+                                      .setDueDate(date);
+                                }),
+                              ),
                               IconButton(
                                   onPressed: () {
                                     context
@@ -152,12 +157,14 @@ class _TaskEditorState extends State<TaskEditor> {
                           _buildLabeledRow(
                             "${MarkdownTaskMarkers.scheduledDateMarker} Scheduled:",
                             Row(children: [
-                              addDateTimePicker(_scheduledDate,
-                                  state.task?.scheduled, context, (date) {
-                                context
-                                    .read<TaskEditorCubit>()
-                                    .setScheduledDate(date);
-                              }),
+                              Expanded(
+                                child: addDateTimePicker(_scheduledDate,
+                                    state.task?.scheduled, context, (date) {
+                                  context
+                                      .read<TaskEditorCubit>()
+                                      .setScheduledDate(date);
+                                }),
+                              ),
                               IconButton(
                                   onPressed: () {
                                     context
@@ -170,13 +177,15 @@ class _TaskEditorState extends State<TaskEditor> {
                           _buildLabeledRow(
                             "${MarkdownTaskMarkers.startDateMarker} Start:",
                             Row(children: [
-                              addDateTimePicker(
-                                  _startDate, state.task?.start, context,
-                                  (date) {
-                                context
-                                    .read<TaskEditorCubit>()
-                                    .setStartDate(date);
-                              }),
+                              Expanded(
+                                child: addDateTimePicker(
+                                    _startDate, state.task?.start, context,
+                                    (date) {
+                                  context
+                                      .read<TaskEditorCubit>()
+                                      .setStartDate(date);
+                                }),
+                              ),
                               IconButton(
                                   onPressed: () {
                                     context
@@ -198,16 +207,19 @@ class _TaskEditorState extends State<TaskEditor> {
                           _buildLabeledRow(
                             "Scheduled notification:",
                             Row(children: [
-                              addDateTimePicker(
-                                _scheduledTime,
-                                state.task?.scheduled ?? DateTime.now(),
-                                context,
-                                (date) {
-                                  context
-                                      .read<TaskEditorCubit>()
-                                      .setScheduledNotificationDateTime(date);
-                                },
-                                timePicker: true,
+                              Expanded(
+                                child: addDateTimePicker(
+                                  _scheduledTime,
+                                  state.task?.scheduled ?? DateTime.now(),
+                                  context,
+                                  (date) {
+                                    context
+                                        .read<TaskEditorCubit>()
+                                        .setScheduledNotificationDateTime(
+                                            date);
+                                  },
+                                  timePicker: true,
+                                ),
                               ),
                               IconButton(
                                   onPressed: () {
@@ -253,13 +265,15 @@ class _TaskEditorState extends State<TaskEditor> {
                           _buildLabeledRow(
                             "${MarkdownTaskMarkers.createdDateMarker} Created:",
                             Row(children: [
-                              addDateTimePicker(
-                                  _createdDate, state.task?.created, context,
-                                  (date) {
-                                context
-                                    .read<TaskEditorCubit>()
-                                    .setCreatedDate(date);
-                              }),
+                              Expanded(
+                                child: addDateTimePicker(
+                                    _createdDate, state.task?.created,
+                                    context, (date) {
+                                  context
+                                      .read<TaskEditorCubit>()
+                                      .setCreatedDate(date);
+                                }),
+                              ),
                               IconButton(
                                   onPressed: () {
                                     context
@@ -272,12 +286,15 @@ class _TaskEditorState extends State<TaskEditor> {
                           _buildLabeledRow(
                             "${MarkdownTaskMarkers.doneDateMarker} Done:",
                             Row(children: [
-                              addDateTimePicker(
-                                  _doneDate, state.task?.done, context, (date) {
-                                context
-                                    .read<TaskEditorCubit>()
-                                    .setDoneDate(date);
-                              }),
+                              Expanded(
+                                child: addDateTimePicker(
+                                    _doneDate, state.task?.done, context,
+                                    (date) {
+                                  context
+                                      .read<TaskEditorCubit>()
+                                      .setDoneDate(date);
+                                }),
+                              ),
                               IconButton(
                                   onPressed: () {
                                     context
@@ -290,12 +307,14 @@ class _TaskEditorState extends State<TaskEditor> {
                           _buildLabeledRow(
                             "${MarkdownTaskMarkers.cancelledDateMarker} Cancelled:",
                             Row(children: [
-                              addDateTimePicker(_cancelledDate,
-                                  state.task?.cancelled, context, (date) {
-                                context
-                                    .read<TaskEditorCubit>()
-                                    .setCancelledDate(date);
-                              }),
+                              Expanded(
+                                child: addDateTimePicker(_cancelledDate,
+                                    state.task?.cancelled, context, (date) {
+                                  context
+                                      .read<TaskEditorCubit>()
+                                      .setCancelledDate(date);
+                                }),
+                              ),
                               IconButton(
                                   onPressed: () {
                                     context
@@ -308,86 +327,144 @@ class _TaskEditorState extends State<TaskEditor> {
                         ],
                       ),
 
-                      // Source link
+                      // Source link: same link control as always (icon +
+                      // blue underlined file name, tap opens it in
+                      // Obsidian) — for a new, non-TaskNote task this points
+                      // at the target file it will be saved to, with a
+                      // "Change file" button alongside. For a new TaskNote
+                      // task, shows the target folder (no file exists to
+                      // link to yet) with a "Change folder" button, so
+                      // Save can go straight to the last-used folder
+                      // without prompting.
                       Card(
                         elevation: 0,
                         color: Colors.transparent,
                         child: Padding(
                           padding: const EdgeInsets.symmetric(
                               horizontal: 4, vertical: 4),
-                          child: GestureDetector(
-                              onTap: () {
-                                context
-                                    .read<TaskEditorCubit>()
-                                    .launchObsidian(context);
-                              },
-                              child: Row(
+                          child: Builder(builder: (context) {
+                            final cubit = context.read<TaskEditorCubit>();
+                            final isNewInlineTask =
+                                cubit.isNewTask && !cubit.taskNoteFormat;
+                            final isNewTaskNoteTask =
+                                cubit.isNewTask && cubit.taskNoteFormat;
+
+                            if (isNewTaskNoteTask) {
+                              return Row(
                                 children: [
-                                  const Icon(Icons.open_in_new, size: 18),
+                                  Icon(Icons.folder_outlined,
+                                      size: 18, color: Colors.grey[600]),
                                   const SizedBox(width: 8),
                                   Expanded(
                                     child: Text(
-                                      _initLink(state.task),
-                                      style: const TextStyle(
-                                        color: Colors.blue,
+                                      cubit.targetTaskNoteDisplayPath,
+                                      style: TextStyle(
                                         fontSize: 14,
-                                        decoration: TextDecoration.underline,
+                                        color: Colors.grey[700],
                                       ),
                                       maxLines: null,
                                       overflow: TextOverflow.visible,
                                     ),
                                   ),
+                                  TextButton.icon(
+                                    icon: const Icon(Icons.folder_open,
+                                        size: 16),
+                                    label: const Text('Change folder',
+                                        style: TextStyle(fontSize: 14)),
+                                    onPressed: () =>
+                                        cubit.chooseTaskNoteFolder(context),
+                                  ),
                                 ],
-                              )),
+                              );
+                            }
+
+                            final fileLink = GestureDetector(
+                                onTap: () {
+                                  if (isNewInlineTask) {
+                                    cubit.openTargetFileInObsidian(context);
+                                  } else {
+                                    cubit.launchObsidian(context);
+                                  }
+                                },
+                                child: Row(
+                                  children: [
+                                    const Icon(Icons.open_in_new, size: 18),
+                                    const SizedBox(width: 8),
+                                    Expanded(
+                                      child: Text(
+                                        isNewInlineTask
+                                            ? cubit.targetFileDisplayName
+                                            : _initLink(state.task),
+                                        style: const TextStyle(
+                                          color: Colors.blue,
+                                          fontSize: 14,
+                                          decoration: TextDecoration.underline,
+                                        ),
+                                        maxLines: null,
+                                        overflow: TextOverflow.visible,
+                                      ),
+                                    ),
+                                  ],
+                                ));
+
+                            if (!isNewInlineTask) {
+                              return fileLink;
+                            }
+
+                            return Row(
+                              children: [
+                                Expanded(child: fileLink),
+                                TextButton.icon(
+                                  icon: const Icon(Icons.folder_open,
+                                      size: 16),
+                                  label: const Text('Change file',
+                                      style: TextStyle(fontSize: 14)),
+                                  onPressed: () =>
+                                      cubit.chooseTargetFile(context),
+                                ),
+                              ],
+                            );
+                          }),
                         ),
                       ),
                     ],
                   ),
                 ),
-                // Bottom save button with optional file chooser checkbox
+                // Bottom save button
                 SafeArea(
                   child: Padding(
                     padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
-                    child: Row(
-                      children: [
-                        if (context.read<TaskEditorCubit>().isNewTask &&
-                            !context.read<TaskEditorCubit>().taskNoteFormat)
-                          Expanded(
-                            flex: 1,
-                            child: CheckboxListTile(
-                              title: const Text('Choose file'),
-                              value: context
-                                  .read<TaskEditorCubit>()
-                                  .chooseFileEnabled,
-                              onChanged: (value) {
-                                if (value != null) {
-                                  context
-                                      .read<TaskEditorCubit>()
-                                      .toggleChooseFile(value);
-                                }
-                              },
-                              controlAffinity: ListTileControlAffinity.leading,
-                              contentPadding: EdgeInsets.zero,
-                            ),
+                    child: Builder(builder: (context) {
+                      final cubit = context.read<TaskEditorCubit>();
+                      final showTargetFile =
+                          cubit.isNewTask && !cubit.taskNoteFormat;
+                      final showTargetNoteFileName = cubit.isNewTask &&
+                          cubit.taskNoteFormat &&
+                          cubit.targetTaskNoteFileName.isNotEmpty;
+
+                      String saveLabel = 'Save';
+                      if (showTargetFile) {
+                        saveLabel = 'Save to ${cubit.targetFileDisplayName}';
+                      } else if (showTargetNoteFileName) {
+                        saveLabel =
+                            'Save to ${cubit.targetTaskNoteFileName}';
+                      }
+
+                      return SizedBox(
+                        height: 40,
+                        child: ElevatedButton.icon(
+                          icon: const Icon(Icons.save_outlined, size: 18),
+                          label: Text(
+                            saveLabel,
+                            style: const TextStyle(fontSize: 14),
+                            overflow: TextOverflow.ellipsis,
                           ),
-                        Expanded(
-                          flex: 1,
-                          child: SizedBox(
-                            height: 40,
-                            child: ElevatedButton.icon(
-                              icon: const Icon(Icons.save_outlined, size: 18),
-                              label: const Text('Save',
-                                  style: TextStyle(fontSize: 14)),
-                              onPressed: () {
-                                context
-                                    .read<TaskEditorCubit>()
-                                    .saveTask(context);
-                              },
-                            ),
-                          ),
+                          onPressed: () {
+                            context.read<TaskEditorCubit>().saveTask(context);
+                          },
                         ),
-                      ],
-                    ),
+                      );
+                    }),
                   ),
                 )
               ]),

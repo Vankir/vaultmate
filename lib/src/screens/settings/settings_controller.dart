@@ -151,14 +151,19 @@ class SettingsController with ChangeNotifier {
     return null;
   }
 
-  static Future<String?> selectVaultDirectory(BuildContext context) async {
+  /// Opens a folder picker. Starts from [initialDirectory] if given
+  /// (e.g. the folder last used for a TaskNote), otherwise from the
+  /// configured vault directory. [initialDirectory] only has an effect on
+  /// Android — the iOS native picker doesn't support pre-selecting a
+  /// starting folder.
+  static Future<String?> selectVaultDirectory(BuildContext context,
+      {String? initialDirectory}) async {
     // Capture messenger before any async gaps to avoid using context later
     final messenger = ScaffoldMessenger.maybeOf(context);
     PermissionStatus status;
     var shortcuts = <FilesystemPickerShortcut>[];
 
-    // Get vault directory from settings to use as initial directory
-    final vaultDir = getInstance().vaultDirectory;
+    final vaultDir = initialDirectory ?? getInstance().vaultDirectory;
 
     if (Platform.isAndroid) {
       Logger().i("requesting Android permission");
@@ -248,12 +253,13 @@ class SettingsController with ChangeNotifier {
   int _rateDialogCounter = 0;
   String? _chatGptKey;
   String? _saveMarker;
-  bool _chooseFileEnabled = false;
   String? _lastSelectedFile;
   String? _filePathPattern;
   bool _showAITab = false;
   bool _dataViewDefaultMarkdownFormat = false;
   bool _backgroundMonitoringEnabled = false;
+  String _taskFormatPreference = "inline";
+  String? _lastTaskNoteFolder;
 
   bool _showOverdueOnly = false;
   bool _includeDueTasksInToday = true;
@@ -277,7 +283,7 @@ class SettingsController with ChangeNotifier {
     return _vaultName!;
   }
 
-  String get tasksFile => _tasksFile ?? "obsi_tasks.md";
+  String get tasksFile => _tasksFile ?? "vaultmate.md";
   String get dateTemplate => _dateTemplate ?? "yyyy-MM-dd";
   //DateTime? get notificationTime => _notificationTime;
   String get globalTaskFilter => _globalTaskFilter ?? "";
@@ -285,13 +291,16 @@ class SettingsController with ChangeNotifier {
   int get rateDialogCounter => _rateDialogCounter;
   String? get chatGptKey => _chatGptKey;
   String? get saveMarker => _saveMarker;
-  bool get chooseFileEnabled => _chooseFileEnabled;
   String? get lastSelectedFile => _lastSelectedFile;
+  String? get lastTaskNoteFolder => _lastTaskNoteFolder;
   String? get filePathPattern => _filePathPattern;
   bool get showOverdueOnly => _showOverdueOnly;
   bool get includeDueTasksInToday => _includeDueTasksInToday;
   bool get swipeHintShownToday => _swipeHintShownToday;
   bool get swipeHintShownInbox => _swipeHintShownInbox;
+  /// See [SettingsService.onboardingComplete] — combined with
+  /// [vaultDirectory] being non-null, this gates whether `app.dart` shows
+  /// the 3-screen onboarding flow.
   bool get onboardingComplete => _onboardingComplete;
   String? get subscriptionStatus => _subscriptionStatus;
   DateTime? get subscriptionExpiry => _subscriptionExpiry;
@@ -300,6 +309,7 @@ class SettingsController with ChangeNotifier {
   bool get showAITab => _showAITab;
   bool get dataViewDefaultMarkdownFormat => _dataViewDefaultMarkdownFormat;
   bool get backgroundMonitoringEnabled => _backgroundMonitoringEnabled;
+  String get taskFormatPreference => _taskFormatPreference;
 
   Future<void> loadSettings() async {
     _themeMode = await _settingsService.themeMode();
@@ -325,12 +335,13 @@ class SettingsController with ChangeNotifier {
     _reviewCompletedReminderTime =
         await _settingsService.reviewCompletedReminderTime();
     _saveMarker = await _settingsService.saveMarker();
-    _chooseFileEnabled = await _settingsService.chooseFileEnabled();
     _lastSelectedFile = await _settingsService.lastSelectedFile();
     _filePathPattern = await _settingsService.filePathPattern();
     _showAITab = await _settingsService.showAITab();
     _backgroundMonitoringEnabled =
         await _settingsService.backgroundMonitoringEnabled();
+    _taskFormatPreference = await _settingsService.taskFormatPreference();
+    _lastTaskNoteFolder = await _settingsService.lastTaskNoteFolder();
 
     // Future<void> updateNotificationTime(DateTime? newNotifTime) async {
     //   if (newNotifTime == notificationTime) return;
@@ -373,18 +384,18 @@ class SettingsController with ChangeNotifier {
     await _settingsService.updateSaveMarker(newSaveMarker);
   }
 
-  Future<void> updateChooseFileEnabled(bool value) async {
-    if (value == _chooseFileEnabled) return;
-
-    _chooseFileEnabled = value;
-    await _settingsService.updateChooseFileEnabled(value);
-  }
-
   Future<void> updateLastSelectedFile(String? filePath) async {
     if (filePath == _lastSelectedFile) return;
 
     _lastSelectedFile = filePath;
     await _settingsService.updateLastSelectedFile(filePath);
+  }
+
+  Future<void> updateLastTaskNoteFolder(String? folder) async {
+    if (folder == _lastTaskNoteFolder) return;
+
+    _lastTaskNoteFolder = folder;
+    await _settingsService.updateLastTaskNoteFolder(folder);
   }
 
   Future<void> updateFilePathPattern(String? pattern) async {
@@ -481,6 +492,14 @@ class SettingsController with ChangeNotifier {
     _dataViewDefaultMarkdownFormat = value;
     notifyListeners();
     await _settingsService.updateDataViewDefaultMarkdownFormat(value);
+  }
+
+  Future<void> updateTaskFormatPreference(String value) async {
+    if (value == _taskFormatPreference) return;
+
+    _taskFormatPreference = value;
+    notifyListeners();
+    await _settingsService.updateTaskFormatPreference(value);
   }
 
   Future<void> updateTasksFile(String newTasksFile) async {

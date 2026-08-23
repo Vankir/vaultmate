@@ -2,31 +2,37 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:obsi/main_navigator.dart' as main_screen;
-import 'package:obsi/src/core/tasks/task_manager.dart';
 import 'package:obsi/src/screens/settings/settings_controller.dart';
 import 'package:path/path.dart' as p;
 import 'package:permission_handler/permission_handler.dart';
-part 'init_state.dart';
 
-class InitCubit extends Cubit<InitState> {
-  final SettingsController _settings;
-  final TaskManager _taskManager;
+part 'folder_selection_state.dart';
+
+/// Vault auto-scan and manual-selection logic, relocated unchanged from
+/// `InitCubit` (formerly `lib/src/screens/init/cubit/init_cubit.dart`) as
+/// the last step of the unified onboarding sequence (FR-006, research.md
+/// §6). Auto-scan remains Android-only; iOS falls back to manual selection,
+/// matching today's existing, already-disclosed platform behavior.
+///
+/// Unlike the old `InitCubit`, this cubit does not navigate on its own —
+/// choosing a folder only updates local state. The screen drives completion
+/// through `OnboardingFlowCubit.complete()`, which is the single place that
+/// persists the vault directory and marks onboarding complete.
+class FolderSelectionCubit extends Cubit<FolderSelectionState> {
   String? vaultDirectory;
 
-  InitCubit(SettingsController settings, this._taskManager)
-      : _settings = settings,
-        vaultDirectory = settings.vaultDirectory,
-        super(InitInitial());
+  FolderSelectionCubit(SettingsController settings)
+      : vaultDirectory = settings.vaultDirectory,
+        super(FolderSelectionInitial());
 
   Future<void> startScanning(BuildContext context) async {
     // Only auto-scan on Android; other platforms fall back to manual selection
     if (!Platform.isAndroid) {
-      emit(InitNoVaultsFound());
+      emit(FolderSelectionNoVaultsFound());
       return;
     }
 
-    emit(InitScanning());
+    emit(FolderSelectionScanning());
 
     try {
       var granted = await SettingsController.storagePermissionsGranted();
@@ -37,18 +43,18 @@ class InitCubit extends Cubit<InitState> {
       }
 
       if (!granted) {
-        emit(InitNoVaultsFound());
+        emit(FolderSelectionNoVaultsFound());
         return;
       }
 
       final vaults = await _scanForVaults();
       if (vaults.isEmpty) {
-        emit(InitNoVaultsFound());
+        emit(FolderSelectionNoVaultsFound());
       } else {
-        emit(InitScanResults(vaults));
+        emit(FolderSelectionScanResults(vaults));
       }
     } catch (e) {
-      emit(InitError(e.toString()));
+      emit(FolderSelectionError(e.toString()));
     }
   }
 
@@ -98,36 +104,26 @@ class InitCubit extends Cubit<InitState> {
     try {
       vaultDirectory = await SettingsController.selectVaultDirectory(context);
       if (vaultDirectory == null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('No folder selected.')),
-        );
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('No folder selected.')),
+          );
+        }
         return;
       }
 
-      emit(ChosenDirectory(vaultDirectory!));
+      emit(FolderChosen(vaultDirectory!));
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('An error occurred: $e')),
-      );
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('An error occurred: $e')),
+        );
+      }
     }
   }
 
-  void continuePressed(BuildContext context) {
-    if (vaultDirectory == null) return;
-
-    _taskManager.loadTasks(vaultDirectory!);
-    _settings.updateVaultDirectory(vaultDirectory!);
-
-    Navigator.pushAndRemoveUntil(
-        context,
-        MaterialPageRoute(
-            builder: (context) => main_screen.MainNavigator(0, _taskManager)),
-        (Route<dynamic> route) => false);
-  }
-
-  void selectScannedVault(BuildContext context, String path) {
+  void selectScannedVault(String path) {
     vaultDirectory = path;
-    emit(ChosenDirectory(path));
-    continuePressed(context);
+    emit(FolderChosen(path));
   }
 }
