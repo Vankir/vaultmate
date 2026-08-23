@@ -322,29 +322,42 @@ class _SettingsViewState extends State<SettingsView> {
               child: Column(children: [
                 const Align(
                     alignment: Alignment.centerLeft,
-                    child: Text("Show on-boarding screen:")),
+                    child: Text("Default task format:")),
                 const SizedBox(height: 8),
-                Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        "Enable to show the on-boarding screen when the app starts",
-                        style: TextStyle(
-                          fontSize: 14,
-                          color: Colors.grey[600],
-                        ),
+                const Text(
+                  "Used to pre-select the format when you create a new task. "
+                  "Doesn't affect tasks you've already created.",
+                  style: TextStyle(fontSize: 12, color: Colors.grey),
+                ),
+                const SizedBox(height: 8),
+                RadioGroup<String>(
+                  groupValue: widget.controller.taskFormatPreference,
+                  onChanged: (value) {
+                    if (value == null) return;
+                    widget.controller.updateTaskFormatPreference(value);
+                    setState(() {
+                      // Trigger UI rebuild after setting update
+                    });
+                  },
+                  child: const Column(
+                    children: [
+                      RadioListTile<String>(
+                        contentPadding: EdgeInsets.zero,
+                        value: 'inline',
+                        title: Text('Inline tasks'),
                       ),
-                    ),
-                    Switch(
-                      value: !widget.controller.onboardingComplete,
-                      onChanged: (value) {
-                        widget.controller.updateOnboardingComplete(!value);
-                        setState(() {
-                          // Trigger UI rebuild after setting update
-                        });
-                      },
-                    ),
-                  ],
+                      RadioListTile<String>(
+                        contentPadding: EdgeInsets.zero,
+                        value: 'taskNote',
+                        title: Text('TaskNotes'),
+                      ),
+                      RadioListTile<String>(
+                        contentPadding: EdgeInsets.zero,
+                        value: 'both',
+                        title: Text('Both (choose per task)'),
+                      ),
+                    ],
+                  ),
                 ),
               ])),
           Padding(
