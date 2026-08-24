@@ -371,6 +371,29 @@ class TaskManager with ChangeNotifier {
 
     var newContent =
         content.substring(0, lineStart) + content.substring(lineEnd);
+
+    // If the file becomes empty after removing the task (e.g. a TaskNote
+    // file that contained only this task), delete the file entirely instead
+    // of leaving an empty shell behind (issue #60).
+    if (newContent.trim().isEmpty) {
+      await file.delete();
+      var updatedTasks = Parser.parseTasks(source.fileName, '',
+          fileNumber: source.fileNumber, taskFilter: _taskFilter);
+
+      var indexOfFirstTaskFromFile =
+          _tasks.indexWhere((val) => val.taskSource!.fileName == source.fileName);
+      if (indexOfFirstTaskFromFile == -1) {
+        indexOfFirstTaskFromFile = 0;
+      } else {
+        _tasks.removeWhere((val) => val.taskSource!.fileName == source.fileName);
+      }
+
+      _addFilteredTasks(_tasks, updatedTasks, todoOnly, forDateOnly,
+          position: indexOfFirstTaskFromFile);
+      notifyListeners();
+      return;
+    }
+
     await file.writeAsString(newContent);
 
     var updatedTasks = Parser.parseTasks(source.fileName, newContent,

@@ -10,6 +10,7 @@ abstract class TasksFile {
   Future<void> writeAsString(String content);
   Future<bool> exists();
   Future<void> create();
+  Future<void> delete();
 }
 
 abstract class TasksFileStorage {

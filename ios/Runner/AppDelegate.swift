@@ -36,6 +36,8 @@ import UIKit
                 self.handleFileRead(arguments: call.arguments, result: result)
             case "TaskFileWriteAsString":
                 self.handleFileWrite(arguments: call.arguments, result: result)
+            case "TaskFileDelete":
+                self.handleFileDelete(arguments: call.arguments, result: result)
             default:
                 result(FlutterMethodNotImplemented)
             }
@@ -116,6 +118,21 @@ import UIKit
         let fileURL = URL(fileURLWithPath: filePath)
         if let error = FileService.writeFileContent(fileURL, content: content) {
             result(FlutterError(code: "WRITE_ERROR", message: "Failed to write file: \(error.localizedDescription)", details: nil))
+        } else {
+            result(nil)
+        }
+    }
+    
+    private func handleFileDelete(arguments: Any?, result: @escaping FlutterResult) {
+        guard let args = arguments as? [String: Any],
+              let filePath = args["filePath"] as? String else {
+            result(FlutterError(code: "INVALID_ARGUMENT", message: "Missing file path", details: nil))
+            return
+        }
+        
+        let fileURL = URL(fileURLWithPath: filePath)
+        if let error = FileService.deleteFile(fileURL) {
+            result(FlutterError(code: "DELETE_ERROR", message: "Failed to delete file: \(error.localizedDescription)", details: nil))
         } else {
             result(nil)
         }

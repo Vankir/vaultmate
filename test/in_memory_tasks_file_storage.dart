@@ -32,6 +32,15 @@ class InMemoryTasksFile implements TasksFile {
   }
 
   @override
+  Future<void> delete() async {
+    _content = '';
+    _deleted = true;
+  }
+
+  bool _deleted = false;
+  bool get isDeleted => _deleted;
+
+  @override
   String toString() {
     return _path;
   }

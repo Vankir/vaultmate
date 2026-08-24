@@ -144,4 +144,24 @@ class FileService {
         }
         return nil // File already exists, consider it a success
     }
+    
+    static func deleteFile(_ fileURL: URL) -> Error? {
+        let success = fileURL.startAccessingSecurityScopedResource()
+        defer {
+            if success {
+                fileURL.stopAccessingSecurityScopedResource()
+            }
+        }
+        
+        let fileManager = FileManager.default
+        guard fileManager.fileExists(atPath: fileURL.path) else {
+            return nil // Nothing to delete, consider it a success
+        }
+        do {
+            try fileManager.removeItem(at: fileURL)
+            return nil
+        } catch {
+            return error
+        }
+    }
 } 

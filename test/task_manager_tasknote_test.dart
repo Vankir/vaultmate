@@ -1,6 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:obsi/src/core/tasks/task_manager.dart';
 import 'package:obsi/src/core/tasks/task.dart';
+import 'package:obsi/src/core/tasks/task_source.dart';
 import 'package:path/path.dart' as p;
 import 'in_memory_tasks_file_storage.dart';
 
@@ -346,6 +347,60 @@ this is a tasknote
       var regularTasks =
           manager.tasks.where((t) => t.tags.contains('regular')).toList();
       expect(regularTasks.length, equals(3));
+    });
+
+    test('deleteTask deletes the whole file when a TaskNote task is deleted',
+        () async {
+      var storage = InMemoryTasksFileStorage();
+
+      // TaskNote file — the whole file IS the task
+      await storage.getFile('/TaskNote/delete_me.md').writeAsString('''---
+status: open
+priority: high
+scheduled: 2025-08-16
+dateCreated: 2025-08-16T22:33:28.696+02:00
+dateModified: 2025-08-16T22:33:28.696+02:00
+tags:
+  - task
+---
+
+task to delete
+''');
+
+      // Regular markdown file with tasks — must NOT be deleted
+      await storage.getFile('/TaskNote/regular.md').writeAsString('''
+- [ ] regular task 1
+- [ ] regular task 2
+''');
+
+      var manager = TaskManager(storage);
+      await manager.loadTasks(p.dirname('/TaskNote/'));
+
+      expect(manager.tasks.length, equals(3));
+
+      var taskToDelete = manager.tasks
+          .firstWhere((t) => t.description == 'task to delete');
+      expect(taskToDelete.taskSource!.type, equals(TaskType.taskNote));
+
+      await manager.deleteTask(taskToDelete);
+
+      // The TaskNote file should be deleted entirely, not left empty
+      var deletedFile = storage.getFile('/TaskNote/delete_me.md');
+      expect(deletedFile.isDeleted, isTrue,
+          reason: 'TaskNote file should be deleted when its only task is removed');
+
+      // Sibling file with regular tasks must be untouched
+      expect(manager.tasks.any((t) => t.description == 'task to delete'),
+          isFalse);
+      expect(manager.tasks.any((t) => t.description == 'regular task 1'),
+          isTrue);
+      expect(manager.tasks.any((t) => t.description == 'regular task 2'),
+          isTrue);
+
+      var siblingContent =
+          await storage.getFile('/TaskNote/regular.md').readAsString();
+      expect(siblingContent, contains('regular task 1'));
+      expect(siblingContent, contains('regular task 2'));
     });
   });
 }
