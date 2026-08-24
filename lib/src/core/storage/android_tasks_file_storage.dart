@@ -13,6 +13,13 @@ class AndroidTasksFile implements TasksFile {
   }
 
   @override
+  Future<void> delete() async {
+    if (await _file.exists()) {
+      await _file.delete();
+    }
+  }
+
+  @override
   Future<bool> exists() async {
     return await _file.exists();
   }

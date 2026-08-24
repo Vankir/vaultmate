@@ -19,6 +19,17 @@ class IosTasksFile implements TasksFile {
   }
 
   @override
+  Future<void> delete() async {
+    try {
+      await _platform.invokeMethod('TaskFileDelete', {
+        'filePath': path,
+      });
+    } on PlatformException catch (e) {
+      throw Exception('Failed to delete file: ${e.message}');
+    }
+  }
+
+  @override
   Future<bool> exists() async {
     try {
       final bool exists = await _platform.invokeMethod('TaskFileExists', {

@@ -8,6 +8,7 @@ import 'package:obsi/src/core/storage/storage_interfaces.dart';
 import 'package:obsi/src/core/tasks/parsers/parser.dart';
 import 'package:obsi/src/core/tasks/reccurent_task.dart';
 import 'package:obsi/src/core/tasks/task.dart';
+import 'package:obsi/src/core/tasks/task_source.dart';
 import 'package:obsi/src/core/tasks/savers/task_saver.dart';
 import 'package:obsi/src/core/tasks/task_worker.dart';
 import 'package:tuple/tuple.dart';
@@ -356,6 +357,17 @@ class TaskManager with ChangeNotifier {
     }
 
     var file = storage.getFile(source.fileName);
+
+    // A TaskNote task lives in its own file — the whole file IS the task.
+    // Delete the file entirely instead of leaving an empty shell behind
+    // (issue #60).
+    if (source.type == TaskType.taskNote) {
+      await file.delete();
+      _tasks.removeWhere((val) => val.taskSource?.fileName == source.fileName);
+      notifyListeners();
+      return;
+    }
+
     var content = await file.readAsString();
 
     // Remove the whole line (including any leading indentation before the
@@ -371,6 +383,7 @@ class TaskManager with ChangeNotifier {
 
     var newContent =
         content.substring(0, lineStart) + content.substring(lineEnd);
+
     await file.writeAsString(newContent);
 
     var updatedTasks = Parser.parseTasks(source.fileName, newContent,
