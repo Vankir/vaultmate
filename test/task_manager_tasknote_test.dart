@@ -384,7 +384,8 @@ task to delete
       await manager.deleteTask(taskToDelete);
 
       // The TaskNote file should be deleted entirely, not left empty
-      var deletedFile = storage.getFile('/TaskNote/delete_me.md');
+      var deletedFile =
+          storage.getFile('/TaskNote/delete_me.md') as InMemoryTasksFile;
       expect(deletedFile.isDeleted, isTrue,
           reason: 'TaskNote file should be deleted when its task is removed');
 
