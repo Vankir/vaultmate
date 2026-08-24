@@ -349,8 +349,7 @@ this is a tasknote
       expect(regularTasks.length, equals(3));
     });
 
-    test('deleteTask deletes the whole file when a TaskNote task is deleted',
-        () async {
+    test('deleteTask deletes the whole file for a TaskNote task', () async {
       var storage = InMemoryTasksFileStorage();
 
       // TaskNote file — the whole file IS the task
@@ -387,7 +386,7 @@ task to delete
       // The TaskNote file should be deleted entirely, not left empty
       var deletedFile = storage.getFile('/TaskNote/delete_me.md');
       expect(deletedFile.isDeleted, isTrue,
-          reason: 'TaskNote file should be deleted when its only task is removed');
+          reason: 'TaskNote file should be deleted when its task is removed');
 
       // Sibling file with regular tasks must be untouched
       expect(manager.tasks.any((t) => t.description == 'task to delete'),
