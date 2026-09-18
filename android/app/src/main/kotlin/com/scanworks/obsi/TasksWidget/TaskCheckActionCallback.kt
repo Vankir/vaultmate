@@ -11,6 +11,7 @@ import androidx.glance.action.ActionParameters
 import androidx.glance.appwidget.action.ActionCallback
 import androidx.glance.appwidget.state.updateAppWidgetState
 import androidx.glance.state.PreferencesGlanceStateDefinition
+import es.antonborri.home_widget.HomeWidgetPlugin
 import org.json.JSONObject
 
 class TaskCheckActionCallback : ActionCallback {
@@ -29,7 +30,13 @@ class TaskCheckActionCallback : ActionCallback {
         val taskJson = parameters[ActionParameters.Key<String>(TASK_JSON_KEY)] ?: return
         val newStatus = parameters[ActionParameters.Key(NEW_STATUS_KEY)] ?: false
         val changedTask = TaskWrapper.fromJson(JSONObject(taskJson))
-        changedTask.updateTaskStatusInFile(newStatus)
+        // The global task filter is not part of a task: the parser strips it out, so it
+        // never reaches the widget data as a tag. Read it from the widget state (written
+        // by HomeWidgetHandler on the Dart side) and write it onto the next occurrence —
+        // otherwise the new task is filtered out in the app and in Tasks queries (#63).
+        val taskFilter = HomeWidgetPlugin.getData(context)
+            .getString(ObsiWidget.GLOBAL_TASK_FILTER_KEY, null)
+        changedTask.updateTaskStatusInFile(newStatus, taskFilter)
 
         // Update the Glance widget's state
         updateAppWidgetState(context,

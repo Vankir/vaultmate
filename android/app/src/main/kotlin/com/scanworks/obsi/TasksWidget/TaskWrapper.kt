@@ -12,6 +12,7 @@ data class TaskWrapper(
     val due: String? = null,
     val start: String? = null,
     val scheduled: String? = null,
+    val scheduledTime: Boolean = false,
     val recurrenceRule: String? = null,
     val filePath: String? = null,
     val fileOffset: String? = null,
@@ -28,6 +29,7 @@ data class TaskWrapper(
             put("due", due)
             put("start", start)
             put("scheduled", scheduled)
+            put("scheduledTime", scheduledTime)
             put("recurrenceRule", recurrenceRule)
             put("filePath", filePath)
             put("fileOffset", fileOffset)
@@ -38,9 +40,11 @@ data class TaskWrapper(
       /**
      * Finds the task in the file at [filePath] using [fileOffset] and changes its status to done ([x]) or in progress ([ ]).
      * @param done true for done ([x]), false for in progress ([ ])
+     * @param taskFilter the global task filter (e.g. `#task`) to write on the next
+     * occurrence, mirroring what TaskParser.toTaskString() does on the Dart side.
      * Returns true if the update was successful, false otherwise.
      */
-    fun updateTaskStatusInFile(done: Boolean): Boolean {
+    fun updateTaskStatusInFile(done: Boolean, taskFilter: String? = null): Boolean {
         val TAG = "TaskWrapper"
         if (filePath.isNullOrEmpty() || fileOffset.isNullOrEmpty()) {
             android.util.Log.w(TAG, "filePath or fileOffset is null or empty: filePath=$filePath, fileOffset=$fileOffset")
@@ -91,7 +95,7 @@ data class TaskWrapper(
 
             // If this completes a recurring task, insert a new task line for the next occurrence,
             // mirroring TaskManager._manageRecurrentTask on the Dart side.
-            val recurringLine = if (done) buildNextOccurrenceLine() else null
+            val recurringLine = if (done) buildNextOccurrenceLine(taskFilter) else null
             if (recurringLine != null) {
                 android.util.Log.d(TAG, "Next occurrence line: '$recurringLine'")
             }
@@ -120,8 +124,11 @@ data class TaskWrapper(
      * occurrence (mirroring TaskManager._manageRecurrentTask / RecurrentTask.calculateNextOccurrence
      * on the Dart side). Returns null if the task is not recurring, has no scheduled date,
      * or the recurrence rule can't be parsed.
+     *
+     * Field order must stay in sync with TaskParser.toTaskString(): description, global
+     * task filter, tags, time, priority, then the dated markers.
      */
-    private fun buildNextOccurrenceLine(): String? {
+    private fun buildNextOccurrenceLine(taskFilter: String?): String? {
         val rule = recurrenceRule
         if (rule.isNullOrBlank() || scheduled.isNullOrBlank()) {
             return null
@@ -131,14 +138,28 @@ data class TaskWrapper(
             val nextDate = RecurrenceCalculator.calculateNextOccurrence(lastDate, rule)
             val today = java.time.LocalDate.now().toString()
 
+            val filterSuffix = if (!taskFilter.isNullOrBlank()) " $taskFilter" else ""
             val tagsSuffix = if (tags.isNotEmpty()) tags.joinToString("") { " #$it" } else ""
+            val timeSuffix = scheduledTimeSuffix()
             val prioritySuffix = priorityMarker(priority)?.let { " $it" } ?: ""
 
-            "- [ ] $description$tagsSuffix$prioritySuffix ➕ $today ⏳ $nextDate 🔁 $rule"
+            "- [ ] $description$filterSuffix$tagsSuffix$timeSuffix$prioritySuffix ➕ $today ⏳ $nextDate 🔁 $rule"
         } catch (e: Exception) {
             android.util.Log.w("TaskWrapper", "Could not compute next occurrence for rule '$rule'", e)
             null
         }
+    }
+
+    /**
+     * The `(@HH:mm)` part of the task line, taken from the ISO-8601 scheduled date.
+     * Only emitted when the task keeps a time, same as the Dart serialiser.
+     */
+    private fun scheduledTimeSuffix(): String {
+        val scheduledDate = scheduled
+        if (!scheduledTime || scheduledDate == null || scheduledDate.length < 16) {
+            return ""
+        }
+        return " (@${scheduledDate.substring(11, 16)})"
     }
 
     companion object {
@@ -182,6 +203,7 @@ data class TaskWrapper(
                 due = obj.optString("due", null),
                 start = obj.optString("start", null),
                 scheduled = obj.optString("scheduled", null),
+                scheduledTime = obj.optBoolean("scheduledTime", false),
                 recurrenceRule = obj.optString("recurrenceRule", null),
                 filePath = obj.optString("filePath", null),
                 fileOffset = obj.optString("fileOffset", null),

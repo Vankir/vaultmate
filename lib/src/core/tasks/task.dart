@@ -222,7 +222,7 @@ class Task implements Comparable<Task> {
       'due': _due?.toIso8601String(),
       'start': _start?.toIso8601String(),
       'scheduled': _scheduled?.toIso8601String(),
-      // 'scheduledTime': _scheduledTime,
+      'scheduledTime': _scheduledTime,
       'recurrenceRule': _recurrenceRule,
       'filePath': taskSource?.fileName,
       'fileOffset': taskSource?.offset.toString(),

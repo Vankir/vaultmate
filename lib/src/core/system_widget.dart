@@ -11,6 +11,11 @@ import 'package:obsi/src/screens/settings/settings_controller.dart';
 import 'package:obsi/src/screens/settings/settings_service.dart';
 
 class HomeWidgetHandler {
+  /// Widget-data key holding the global task filter (e.g. `#task`). The native
+  /// widget code needs it to re-create a recurring task the same way the Dart
+  /// side does — see Vankir/vaultmate#63.
+  static const String globalTaskFilterKey = 'globalTaskFilter';
+
   @pragma("vm:entry-point")
   static Future<void> homeWidgetHandler(Uri? uri) async {
     try {
@@ -32,6 +37,7 @@ class HomeWidgetHandler {
   static Future<void> updateWidget(List<Task> tasks) async {
     try {
       Logger().i("Updating widget with tasks: ${tasks.length}");
+      await _saveGlobalTaskFilter();
       var jsonTasks = jsonEncode(_tasks2Json(tasks));
       await _saveAndUpdateWidget("tasks", jsonTasks);
     } catch (e) {
@@ -42,6 +48,7 @@ class HomeWidgetHandler {
 
   static Future _requestTasksHandler() async {
     Logger().i("HomeWidget: requesttasks received");
+    await _saveGlobalTaskFilter();
     var tasks = await _getTodayTasks();
     var jsonTasks = jsonEncode(tasks);
     _saveAndUpdateWidget("tasks", jsonTasks.toString());
@@ -51,6 +58,22 @@ class HomeWidgetHandler {
     await HomeWidget.saveWidgetData<String>(key, value);
     await HomeWidget.updateWidget(
         name: 'ObsiWidgetReceiver', iOSName: 'HomeWidget');
+  }
+
+  /// Shares the global task filter with the widget state so the native widget
+  /// code can append it when it re-creates the next occurrence of a recurring
+  /// task — otherwise the new task is filtered out everywhere (see #63).
+  static Future _saveGlobalTaskFilter() async {
+    try {
+      var settings =
+          SettingsController.getInstance(settingsService: SettingsService());
+      await settings.loadSettings();
+      var taskFilter = settings.globalTaskFilter;
+      await HomeWidget.saveWidgetData<String>(globalTaskFilterKey, taskFilter);
+      Logger().d("HomeWidget: saved global task filter '$taskFilter'");
+    } catch (e) {
+      Logger().e("Error saving global task filter to widget state: $e");
+    }
   }
 
   static Future<List<Map<String, dynamic>>?> _getTodayTasks() async {
