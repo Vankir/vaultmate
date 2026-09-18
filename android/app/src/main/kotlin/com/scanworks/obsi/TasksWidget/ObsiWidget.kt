@@ -241,6 +241,12 @@ class ObsiWidget : GlanceAppWidget() {
 
     companion object {
         const val TASKS_JSON_KEY = "tasks"
+
+        /**
+         * Key written by HomeWidgetHandler (Dart) holding the global task filter, so the
+         * widget can re-create a recurring task exactly like the app does (see #63).
+         */
+        const val GLOBAL_TASK_FILTER_KEY = "globalTaskFilter"
         const val TASKS_ERROR = "error"
 
         @JvmStatic
