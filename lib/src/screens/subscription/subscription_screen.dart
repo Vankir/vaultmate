@@ -1,6 +1,5 @@
-import 'dart:io';
-
 import 'package:flutter/material.dart';
+import 'package:obsi/src/core/subscription/premium_features.dart';
 import 'package:obsi/src/core/subscription/subscription_manager.dart';
 import 'package:obsi/src/screens/settings/settings_controller.dart';
 import 'package:in_app_purchase/in_app_purchase.dart';
@@ -96,6 +95,8 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
           children: [
             _buildCurrentSubscriptionStatus(),
             const SizedBox(height: 24),
+            _buildFreeTierFeatures(),
+            const SizedBox(height: 16),
             _buildPremiumFeatures(),
             const SizedBox(height: 24),
             _buildSubscriptionPlans(),
@@ -172,19 +173,48 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
     );
   }
 
+  Widget _buildFreeTierFeatures() {
+    const freeFeatures = [
+      'All your tasks, no limit, in list and grouped views',
+      'Add, open and complete tasks from the home-screen widget',
+      'Recurring tasks, tags, reminders and TaskNotes format',
+      'AI assistant with your own API key',
+    ];
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Free forever',
+              style: Theme.of(context).textTheme.titleMedium,
+            ),
+            const SizedBox(height: 12),
+            ...freeFeatures.map((feature) => Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 4.0),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.check, color: Colors.green, size: 20),
+                      const SizedBox(width: 8),
+                      Expanded(child: Text(feature)),
+                    ],
+                  ),
+                )),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildPremiumFeatures() {
-    final features = Platform.isIOS
-        ? const [
-            'Support the development of VaultMate',
-            'Calendar view mode',
-            'Future premium features',
-          ]
-        : const [
-            'Support the development of VaultMate',
-            'Adding task and open task from widget',
-            'Calendar view mode',
-            'Future premium features',
-          ];
+    // Single source of truth: PremiumFeatures.premiumFeaturesList. The old
+    // Platform.isIOS branch advertised "Adding task and open task from widget"
+    // as paid and "Future premium features" as a benefit - both wrong (widget
+    // actions are free since 1.9.0, and an unnamed future feature is not an
+    // argument to pay).
+    final features = PremiumFeatures.premiumFeaturesList;
 
     return Card(
       child: Padding(

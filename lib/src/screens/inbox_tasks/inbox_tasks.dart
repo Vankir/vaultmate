@@ -360,6 +360,22 @@ class InboxTasks extends StatelessWidget with WidgetsBindingObserver {
                     onPressed: () {
                       ViewMode nextMode =
                           getNextViewMode(_inboxTaskCubit.viewMode);
+                      // Calendar planning view is a premium feature; free tier
+                      // keeps unlimited list and grouped views.
+                      if (nextMode == ViewMode.calendar &&
+                          !SettingsController.getInstance()
+                              .hasActiveSubscription) {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => SubscriptionScreen(
+                              settingsController:
+                                  SettingsController.getInstance(),
+                            ),
+                          ),
+                        );
+                        return;
+                      }
                       _inboxTaskCubit.updateViewMode(nextMode);
                     },
                     icon: Icon(getViewModeIcon(_inboxTaskCubit.viewMode)));
@@ -573,17 +589,7 @@ class InboxTasks extends StatelessWidget with WidgetsBindingObserver {
       return a.scheduled!.compareTo(b.scheduled!);
     });
 
-    int i = 0;
-    bool hitPremiumLimit = false;
     for (var task in tasks) {
-      if (!SettingsController.getInstance().hasActiveSubscription && i > 10) {
-        //show card with premium upgrade suggestion and skip the rest tasks
-        calendarViews.add(_createPremiumUpgradeCalendarView(
-            context, tasks.length - i, highlightedText));
-        hitPremiumLimit = true;
-        break; // Skip the rest of the tasks
-      }
-
       final card = _createTaskCard(context, task, highlightedText);
       Widget rowWidget = _wrapTaskCardWithSwipe(context, card);
       if (!hintApplied && !_inboxTaskCubit.swipeHintShown) {
@@ -611,11 +617,9 @@ class InboxTasks extends StatelessWidget with WidgetsBindingObserver {
         calendarTaskCards = [card];
         calendarTaskWidgets = [rowWidget];
       }
-      i++;
     }
 
-    // Add the last group only if we didn't hit the premium limit
-    if (calendarTaskCards.isNotEmpty && !hitPremiumLimit) {
+    if (calendarTaskCards.isNotEmpty) {
       calendarViews.add(CalendarView(
         calendarTaskWidgets,
         scheduledDate: calendarTaskCards[0].task.scheduled,
@@ -624,90 +628,6 @@ class InboxTasks extends StatelessWidget with WidgetsBindingObserver {
     }
 
     return calendarViews;
-  }
-
-  Card _createPremiumUpgradeCalendarView(
-      BuildContext context, int hiddenTasksCount, String highlightedText) {
-    return Card(
-      margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      elevation: 2,
-      child: Container(
-        width: double.infinity,
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(12),
-          gradient: LinearGradient(
-            colors: [
-              Colors.amber.withOpacity(0.1),
-              Colors.orange.withOpacity(0.1),
-            ],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-          ),
-          border: Border.all(
-            color: Colors.amber.withOpacity(0.3),
-            width: 1,
-          ),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Row(
-              children: [
-                Icon(
-                  Icons.star,
-                  color: Colors.amber,
-                  size: 24,
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    'Upgrade to Premium',
-                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.bold,
-                          color: Colors.amber[700],
-                        ),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'You have $hiddenTasksCount more ${hiddenTasksCount == 1 ? 'task' : 'tasks'}. Upgrade to Premium to see all your tasks without limits.',
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: Theme.of(context)
-                        .colorScheme
-                        .onSurface
-                        .withOpacity(0.8),
-                  ),
-            ),
-            const SizedBox(height: 12),
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton.icon(
-                onPressed: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => SubscriptionScreen(
-                        settingsController: SettingsController.getInstance(),
-                      ),
-                    ),
-                  );
-                },
-                icon: const Icon(Icons.upgrade),
-                label: const Text('Upgrade Now'),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.amber,
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 12),
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
   }
 
   List<FileView> _createFileViews(
