@@ -3,12 +3,17 @@ import 'package:obsi/src/screens/settings/settings_controller.dart';
 import 'package:obsi/src/screens/subscription/subscription_screen.dart';
 
 class PremiumFeatures {
+  /// What Premium actually unlocks.
+  ///
+  /// Free tier is deliberately complete for everyday use: unlimited tasks in
+  /// list and grouped views, plus adding, opening and completing tasks from the
+  /// home-screen widget. Premium adds the calendar planning view and support.
+  /// Keep this list in sync with the real gating code - promising
+  /// "task synchronization" in an offline app is what users complain about.
   static const List<String> premiumFeaturesList = [
-    'Unlimited task synchronization',
-    'Advanced filtering and search',
-    'Custom notification settings',
-    'Priority customer support',
-    'Future premium features',
+    'Calendar planning view',
+    'Support the development of VaultMate',
+    'Every future premium feature, included',
   ];
 
   /// Check if the user has access to premium features

@@ -49,17 +49,11 @@ class _AppState extends State<App> {
 
     switch (action) {
       case 'add_task':
-        SettingsController.getInstance().hasActiveSubscription
-            ? _navigateToAddTask()
-            : _navigatorKey.currentState
-                ?.pushNamed(SubscriptionScreen.routeName);
+        _navigateToAddTask();
         break;
       case 'open_task':
         if (extras != null && extras['task_json'] != null) {
-          SettingsController.getInstance().hasActiveSubscription
-              ? _navigateToOpenTask(extras['task_json'])
-              : _navigatorKey.currentState
-                  ?.pushNamed(SubscriptionScreen.routeName);
+          _navigateToOpenTask(extras['task_json']);
         }
         break;
       case 'open_notes_widget_config':
